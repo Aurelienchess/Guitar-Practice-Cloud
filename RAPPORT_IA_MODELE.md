@@ -58,3 +58,38 @@ Il permet de donner à l'agent une vision globale du projet et de son environnem
 ### Pourquoi j'ai voulu faire ça et ce que j'en ai compris
 Avant de commencer le développement et apporter des modifications fonctionnelles il est important de bien comprendre le fonctionnement du backend actuellement. Cette analyse me permet donc d'avoir une idée de l'architecture pour mieux comprendre les échanges de flux de données comme la création de compte, la connexion et la gestion des fichiers audio. De plus l'explicatif des technologies utilisées me permet de mieux les comprendre. C'est le cas notament de Mongoose car je pensais initialement qu'il représentait uniquement la base de données lors des échanges de données alors qu'il s'occupe de bien plus comme par exemple l'hashage et la validation utilisateur.
 Pour finir j'ai grâce à ce prompt une idée des vulnérabilités actuelles du backend d'un point de vue sécurité afin d'être en mesure de les corriger dans un avenir proche et de les expliquer.
+
+---
+
+## 3. Analyse détaillée du Frontend, Navigation des Données et Sécurité
+
+**Prompt :**
+> "Maintenant j'aimerais que tu fasse la même analyse que le backend mais pour le frontend en exposant les technologies utilisés, la navigation de données en la reliant avec le backend et tous les problèmes de sécurités dans l'ordre d'importance où tu proposera des améliorations. Le tout avec des schéma."
+
+### Rapport de ce que l'agent a fait et analysé
+- **Exploration approfondie du code source `frontend-starter/` :**
+  - Examen des dépendances (`package.json`) : Angular 22.1.0 standalone, RxJS 7.8.0, Vitest 4.0.8, proxy de développement `proxy.conf.json`.
+  - Analyse du point d'amorçage (`main.ts`) : `bootstrapApplication` avec `provideRouter(routes)` et `provideHttpClient(withInterceptors([authInterceptor]))`.
+  - Cartographie des composants et de la navigation (`routes.ts`, `app/components/*`) :
+    - `AppComponent` : Shell racine, barre de navigation statique (sans état réactif connecté/déconnecté).
+    - `LoginPageComponent` & `RegisterPageComponent` : Formulaires réactifs (`FormGroup`), validation de base, appels d'authentification.
+    - `ProfilePageComponent` : Consultation et mise à jour du profil via `AuthService`.
+    - `TracksPageComponent` : Pagination serveur, upload de fichier via `FormData`, et lecture audio sécurisée via récupération de `Blob`.
+  - Analyse de l'infrastructure partagée (`src/app/shared/`) :
+    - `AuthService` : Gestion réactive d'état par Signals (`token`, `currentUser`) et persistance dans `localStorage`.
+    - `TrackService` : Méthodes HTTP encapsulées (`list`, `upload`, `audio`).
+    - `authGuard` : Garde de routage fonctionnel (`CanActivateFn`) basé sur `auth.token()`.
+    - `authInterceptor` : Intercepteur HTTP fonctionnel injectant le header `Authorization: Bearer <token>`.
+- **Rédaction du document d'analyse (`frontend-starter/analyse.md`) :**
+  - Synthèse des technologies modernes (Angular 22 standalone, Signals, RxJS, Vitest).
+  - Schéma d'architecture globale reliant les composants, les services, le stockage local, l'intercepteur, le proxy et l'API backend.
+  - Diagrammes de séquence détaillés :
+    - Authentification et synchronisation d'état (Formulaire -> AuthService -> API -> `localStorage` -> Signals -> Router).
+    - Garde de routage et intercepteur JWT (Vérification guard -> injection Bearer token).
+    - Lecture audio sécurisée en mémoire (`Blob` -> `URL.createObjectURL` -> `<audio [src]>`).
+  - Revue critique de sécurité classée par sévérité (XSS sur `localStorage`, absence de capture des erreurs 401 dans l'intercepteur, fuites mémoire d'`ObjectURL` sans destruction, garde naïve, intercepteur non scopé).
+  - Recommandations concrètes de renforcement (gestion 401, `DestroyRef`, validation stricte des formulaires).
+
+### Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+Après avoir clarifié le backend, il est normal d'avoir la même clarté sur le frontend. Ce prompt m'a donc permis d'avoir un aperçu sur comment l'application gère les formulaires, la transition des données jusqu'au proxy et à l'API, ainsi que le fonctionnement du lecteur audio par Blob de manière plus visuel. Par ailleurs je ne comprenais pas à quoi correspondait le token JWT. Ce prompt m'a donc permis de comprendre qu'il sert de preuve d'identité émise à la connexion et que le serveur n'a pas à stocker mais uniquement à valider cette preuve et que l'intercepteur HTTP injecte le header sur chaque requête angular. De plus le fait que le serveur n'est pas à stocker cette signature ça permet, d'un point de vue sécurité, que si le payload est modifié, alors la signature ne correspond plus et le token est rejeté. 
+Pour finir, des failles côté client sont aussi présentes et pourront potentiellement être corrigées par la suite.
