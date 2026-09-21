@@ -93,3 +93,132 @@ Pour finir j'ai grâce à ce prompt une idée des vulnérabilités actuelles du 
 ### Ce que j'en ai compris, pourquoi j'ai voulu faire ça
 Après avoir clarifié le backend, il est normal d'avoir la même clarté sur le frontend. Ce prompt m'a donc permis d'avoir un aperçu sur comment l'application gère les formulaires, la transition des données jusqu'au proxy et à l'API, ainsi que le fonctionnement du lecteur audio par Blob de manière plus visuel. Par ailleurs je ne comprenais pas à quoi correspondait le token JWT. Ce prompt m'a donc permis de comprendre qu'il sert de preuve d'identité émise à la connexion et que le serveur n'a pas à stocker mais uniquement à valider cette preuve et que l'intercepteur HTTP injecte le header sur chaque requête angular. De plus le fait que le serveur n'est pas à stocker cette signature ça permet, d'un point de vue sécurité, que si le payload est modifié, alors la signature ne correspond plus et le token est rejeté. 
 Pour finir, des failles côté client sont aussi présentes et pourront potentiellement être corrigées par la suite.
+
+---
+
+## 4. Mission 0 — Cartographier l'application
+
+**Prompt :**
+> « Réalisons maintenant la mission 0 de mon TP1 dans le rapport. Retrouve et décris le composant racine, puis la configuration des routes, puis l'enregistrement de `HttpClient`, puis les modèles, services et pages, puis le mécanisme qui ajoute le JWT aux requêtes protégées et enfin créer un schéma annoté du flux lors d'un clic sur « Se connecter ». »
+
+### Rapport de ce que l'agent a fait et analysé
+
+#### Composant racine — `app/components/app/app.ts`
+- Sélecteur HTML : `<app-root>`, c'est lui que `index.html` monte au démarrage.
+- Classe vide (`export class AppComponent {}`), toute la logique est déléguée aux services.
+- Importe uniquement `RouterLink` et `RouterOutlet` : il se contente d'afficher la barre de navigation et la vue de la route active via `<router-outlet>`.
+- Pas d'état réactif : la barre de navigation est statique (ne change pas selon qu'on est connecté ou non).
+
+#### Configuration des routes — `app/routes.ts`
+| Route | Composant | Garde |
+|---|---|---|
+| `/` (vide) | → redirige vers `/tracks` | — |
+| `/login` | `LoginPageComponent` | aucune |
+| `/register` | `RegisterPageComponent` | aucune |
+| `/profile` | `ProfilePageComponent` | `authGuard` |
+| `/tracks` | `TracksPageComponent` | `authGuard` |
+| `**` (tout le reste) | → redirige vers `/tracks` | — |
+
+- Les routes `/profile` et `/tracks` sont protégées par `canActivate: [authGuard]` : si le token est absent, l'utilisateur est renvoyé vers `/login`.
+
+#### Enregistrement de `HttpClient` — `main.ts`
+```typescript
+bootstrapApplication(AppComponent, {
+  providers: [
+    provideRouter(routes),
+    provideHttpClient(withInterceptors([authInterceptor])),
+  ],
+});
+```
+- `provideHttpClient(...)` enregistre `HttpClient` pour toute l'application au niveau racine (équivalent moderne du module `HttpClientModule`).
+- `withInterceptors([authInterceptor])` branche l'intercepteur JWT sur **toutes** les requêtes HTTP sortantes dès le démarrage.
+
+#### Modèles TypeScript — `app/shared/models/`
+| Fichier | Rôle |
+|---|---|
+| `user.model.ts` | Forme de l'objet `User` renvoyé par l'API (`id`, `name`, `email`) |
+| `auth-response.model.ts` | Réponse du login/register : `{ token: string, user: User }` |
+| `track.model.ts` | Forme d'une piste audio (`id`, `title`, `duration`, `createdAt`) |
+| `page.model.ts` | Enveloppe de pagination : `{ data: T[], total, page, limit }` |
+
+#### Services — `app/shared/services/`
+- **`AuthService`** (`providedIn: 'root'`) :
+  - Contient deux Signals : `token` (initialisé depuis `localStorage`) et `currentUser`.
+  - Méthodes : `login`, `register`, `profile`, `update`, `logout`.
+  - Appelle `HttpClient` directement — les composants ne touchent jamais à `HttpClient`.
+- **`TrackService`** (`providedIn: 'root'`) :
+  - Méthodes : `list(page, limit)`, `upload(file, title)`, `audio(id)` (réponse de type `Blob`).
+
+#### Garde de routage — `app/shared/guards/auth.guard.ts`
+```typescript
+export const authGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  return auth.token() ? true : router.createUrlTree(['/login']);
+};
+```
+- Vérifie uniquement la **présence** du token dans le Signal (pas l'expiration ni la validité cryptographique).
+
+#### Pages (composants de page) — `app/components/`
+| Composant | Responsabilité |
+|---|---|
+| `LoginPageComponent` | Formulaire réactif email/mot-de-passe, appel `AuthService.login()` |
+| `RegisterPageComponent` | Formulaire réactif nom/email/mot-de-passe, appel `AuthService.register()` |
+| `ProfilePageComponent` | Affichage + modification du nom via `AuthService.profile()` et `update()` |
+| `TracksPageComponent` | Liste paginée, upload de fichier, lecture audio via `Blob` + `ObjectURL` |
+
+#### Mécanisme JWT — `app/shared/interceptors/auth.interceptor.ts`
+```typescript
+export const authInterceptor: HttpInterceptorFn = (request, next) => {
+  const token = inject(AuthService).token();
+  return next(
+    token
+      ? request.clone({ setHeaders: { Authorization: `Bearer ${token}` } })
+      : request,
+  );
+};
+```
+- À chaque requête HTTP, l'intercepteur lit le Signal `token` de `AuthService`.
+- Si le token est présent, il **clone** la requête (immuabilité) en y ajoutant le header `Authorization: Bearer <token>`.
+- Si aucun token, la requête passe telle quelle (routes publiques `/auth/login`, `/auth/register`).
+
+---
+
+#### Schéma annoté — Flux lors d'un clic sur « Se connecter »
+
+```mermaid
+sequenceDiagram
+    actor U as Utilisateur
+    participant LP as LoginPageComponent
+    participant AS as AuthService
+    participant IC as authInterceptor
+    participant PX as Proxy dev :4200
+    participant EX as Express :3000
+    participant MG as MongoDB Atlas
+
+    U->>LP: Clic "Se connecter"
+    LP->>LP: form.getRawValue()
+    LP->>AS: auth.login(email, password)
+    AS->>IC: HttpClient POST /api/auth/login
+    Note over IC: token() == null<br/>route publique, requête non modifiée
+    IC->>PX: POST /api/auth/login
+    PX->>EX: Proxy vers :3000
+    EX->>MG: User.findOne({ email })
+    MG-->>EX: Document User
+    EX->>EX: verifyPassword() via bcryptjs
+    EX->>EX: jwt.sign({ sub, email }, SECRET, 2h)
+    EX-->>PX: 200 { token, user }
+    PX-->>AS: Observable AuthResponse
+    AS->>AS: localStorage.setItem gpc_token
+    AS->>AS: token.set(response.token)
+    AS->>AS: currentUser.set(response.user)
+    AS-->>LP: next() - succès
+    LP->>LP: router.navigateByUrl('/tracks')
+    Note over LP: Toutes les requêtes suivantes<br/>reçoivent Authorization: Bearer token
+```
+
+### Ce que j'en ai compris
+Ici, l'agent se sert des fichiers d'analyses précédemments effectuer pour fournir les livrables de la mission 0. En effet, cela permet de terminer cette phase de préparation avant le développement. On peut dès lors constater les différentes couches de l'application : le composant racine qui délègue l'affichage au routeur, le routeur, qui protège certaines routes, et l'intercepteur JWT qui branche automatiquement le token sur toutes les requêtes HTTP sans que les composants aient à s'en occuper. Le schéma de séquence permet de suivre précisément le chemin que font les données quand l'utilisateur clique sur « Se connecter » depuis le formulaire jusqu'à la réponse de MongoDB, en passant par le proxy de développement. La route /api/auth/login est publique car l'intercepteur laisse passer la requête sans token et que c'est seulement après la réponse réussie que le token est stocké dans le localStorage et dans le Signal, ce qui déclenche ainsi l'accès aux routes protégées pour toutes les requêtes suivantes. 
+
+#### Différence entre le Signal et le localStorage
+La différence entre le localStorage et le Signal est que le localStorage laisse la donnée sur le disque même si la page est fermée ou rafraîchie alors que le Signal maintient la donnée en mémoire et alèrte tous les composants en lien avec elle de son changement.
+C'est pour cela qu'au démarrage de l'application AuthService initialise le Signal en lisant localStorage ce qui permet de restaurer une potentiel session existante et qu'ensuite le Signal pilote l'interface en temps réel sans que les composants aient besoin du localStorage.
