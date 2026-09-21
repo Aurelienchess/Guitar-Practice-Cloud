@@ -96,32 +96,32 @@ Pour finir, des failles côté client sont aussi présentes et pourront potentie
 
 ---
 
-## 4. Mission 0 — Cartographier l'application
+## 4. Mission 0 : Cartographier l'application
 
 **Prompt :**
 > « Réalisons maintenant la mission 0 de mon TP1 dans le rapport. Retrouve et décris le composant racine, puis la configuration des routes, puis l'enregistrement de `HttpClient`, puis les modèles, services et pages, puis le mécanisme qui ajoute le JWT aux requêtes protégées et enfin créer un schéma annoté du flux lors d'un clic sur « Se connecter ». »
 
 ### Rapport de ce que l'agent a fait et analysé
 
-#### Composant racine — `app/components/app/app.ts`
+#### Composant racine : `app/components/app/app.ts`
 - Sélecteur HTML : `<app-root>`, c'est lui que `index.html` monte au démarrage.
 - Classe vide (`export class AppComponent {}`), toute la logique est déléguée aux services.
 - Importe uniquement `RouterLink` et `RouterOutlet` : il se contente d'afficher la barre de navigation et la vue de la route active via `<router-outlet>`.
 - Pas d'état réactif : la barre de navigation est statique (ne change pas selon qu'on est connecté ou non).
 
-#### Configuration des routes — `app/routes.ts`
+#### Configuration des routes : `app/routes.ts`
 | Route | Composant | Garde |
 |---|---|---|
-| `/` (vide) | → redirige vers `/tracks` | — |
+| `/` (vide) | → redirige vers `/tracks` | : |
 | `/login` | `LoginPageComponent` | aucune |
 | `/register` | `RegisterPageComponent` | aucune |
 | `/profile` | `ProfilePageComponent` | `authGuard` |
 | `/tracks` | `TracksPageComponent` | `authGuard` |
-| `**` (tout le reste) | → redirige vers `/tracks` | — |
+| `**` (tout le reste) | → redirige vers `/tracks` | : |
 
 - Les routes `/profile` et `/tracks` sont protégées par `canActivate: [authGuard]` : si le token est absent, l'utilisateur est renvoyé vers `/login`.
 
-#### Enregistrement de `HttpClient` — `main.ts`
+#### Enregistrement de `HttpClient` : `main.ts`
 ```typescript
 bootstrapApplication(AppComponent, {
   providers: [
@@ -133,7 +133,7 @@ bootstrapApplication(AppComponent, {
 - `provideHttpClient(...)` enregistre `HttpClient` pour toute l'application au niveau racine (équivalent moderne du module `HttpClientModule`).
 - `withInterceptors([authInterceptor])` branche l'intercepteur JWT sur **toutes** les requêtes HTTP sortantes dès le démarrage.
 
-#### Modèles TypeScript — `app/shared/models/`
+#### Modèles TypeScript : `app/shared/models/`
 | Fichier | Rôle |
 |---|---|
 | `user.model.ts` | Forme de l'objet `User` renvoyé par l'API (`id`, `name`, `email`) |
@@ -141,15 +141,15 @@ bootstrapApplication(AppComponent, {
 | `track.model.ts` | Forme d'une piste audio (`id`, `title`, `duration`, `createdAt`) |
 | `page.model.ts` | Enveloppe de pagination : `{ data: T[], total, page, limit }` |
 
-#### Services — `app/shared/services/`
+#### Services : `app/shared/services/`
 - **`AuthService`** (`providedIn: 'root'`) :
   - Contient deux Signals : `token` (initialisé depuis `localStorage`) et `currentUser`.
   - Méthodes : `login`, `register`, `profile`, `update`, `logout`.
-  - Appelle `HttpClient` directement — les composants ne touchent jamais à `HttpClient`.
+  - Appelle `HttpClient` directement : les composants ne touchent jamais à `HttpClient`.
 - **`TrackService`** (`providedIn: 'root'`) :
   - Méthodes : `list(page, limit)`, `upload(file, title)`, `audio(id)` (réponse de type `Blob`).
 
-#### Garde de routage — `app/shared/guards/auth.guard.ts`
+#### Garde de routage : `app/shared/guards/auth.guard.ts`
 ```typescript
 export const authGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
@@ -158,7 +158,7 @@ export const authGuard: CanActivateFn = () => {
 ```
 - Vérifie uniquement la **présence** du token dans le Signal (pas l'expiration ni la validité cryptographique).
 
-#### Pages (composants de page) — `app/components/`
+#### Pages (composants de page) : `app/components/`
 | Composant | Responsabilité |
 |---|---|
 | `LoginPageComponent` | Formulaire réactif email/mot-de-passe, appel `AuthService.login()` |
@@ -166,7 +166,7 @@ export const authGuard: CanActivateFn = () => {
 | `ProfilePageComponent` | Affichage + modification du nom via `AuthService.profile()` et `update()` |
 | `TracksPageComponent` | Liste paginée, upload de fichier, lecture audio via `Blob` + `ObjectURL` |
 
-#### Mécanisme JWT — `app/shared/interceptors/auth.interceptor.ts`
+#### Mécanisme JWT : `app/shared/interceptors/auth.interceptor.ts`
 ```typescript
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const token = inject(AuthService).token();
@@ -183,7 +183,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
 
 ---
 
-#### Schéma annoté — Flux lors d'un clic sur « Se connecter »
+#### Schéma annoté : Flux lors d'un clic sur « Se connecter »
 
 ```mermaid
 sequenceDiagram
@@ -222,3 +222,169 @@ Ici, l'agent se sert des fichiers d'analyses précédemments effectuer pour four
 #### Différence entre le Signal et le localStorage
 La différence entre le localStorage et le Signal est que le localStorage laisse la donnée sur le disque même si la page est fermée ou rafraîchie alors que le Signal maintient la donnée en mémoire et alèrte tous les composants en lien avec elle de son changement.
 C'est pour cela qu'au démarrage de l'application AuthService initialise le Signal en lisant localStorage ce qui permet de restaurer une potentiel session existante et qu'ensuite le Signal pilote l'interface en temps réel sans que les composants aient besoin du localStorage.
+
+---
+
+## 5. Mission 1 : Compléter la partie utilisateur du frontend
+
+**Prompt :**
+> « Maintenant j'aimerais réaliser la mission 1 : Compléter ou réécrire la partie utilisateur du frontend : formulaires réactifs pour l'inscription et la connexion ; validations et messages d'erreur compréhensibles ; appels de /api/auth/register et /api/auth/login ; sauvegarde du JWT côté navigateur, sans jamais l'afficher dans les logs ; mise à jour du Signal currentUser ; redirection après une connexion ou une inscription réussie ; bouton de déconnexion avec nettoyage de l'état local ; chargement de /api/users/me lorsque le profil est demandé ; modification du nom avec PUT /api/users/me ; gestion d'un 401, avec retour vers /login si le token est invalide ou expiré. »
+### Rapport de ce que l'agent a fait et analysé
+
+#### 1. `auth.interceptor.ts` : Ajout de la gestion du 401
+**Problème :** L'intercepteur original ne faisait qu'ajouter le token. Si le serveur répondait `401 Unauthorized` (token expiré ou invalide), rien ne se passait côté client.
+
+**Ce qui a été ajouté :**
+- Import de `catchError` et `throwError` de RxJS.
+- Import de `Router`.
+- Pipeline `.pipe(catchError(...))` sur la réponse HTTP : si le statut est `401`, `auth.logout()` est appelé (nettoyage `localStorage` + remise à zéro des Signals) puis `router.navigateByUrl('/login')` redirige l'utilisateur.
+- La requête rejetée est relancée via `throwError(() => error)` pour que les composants puissent aussi catcher l'erreur si nécessaire.
+
+```typescript
+return next(req).pipe(
+  catchError((error: { status?: number }) => {
+    if (error.status === 401) {
+      auth.logout();
+      void router.navigateByUrl('/login');
+    }
+    return throwError(() => error);
+  }),
+);
+```
+
+---
+
+#### 2. `login-page.ts` + `login-page.html` : Connexion renforcée
+
+**Modifications du composant :**
+- Suppression des valeurs par défaut `demo@example.com` / `Demo1234!` (faille de sécurité : des credentials ne doivent pas être codés en dur dans le source).
+- Ajout du validateur `Validators.minLength(8)` sur le mot de passe.
+- Ajout du Signal `loading` : mis à `true` au début de la requête, `false` à la fin (succès ou erreur), pour désactiver le bouton et prévenir le double-envoi.
+- Suppression du `console.debug` qui affichait le résultat de connexion (le token ne doit jamais apparaître dans les logs).
+- Ajout d'un `if (this.form.invalid) return;` de garde en début de `submit()`.
+
+**Modifications du template :**
+- Messages d'erreur par champ (apparus uniquement après que le champ a été touché) :
+  - Email : « L'adresse email est requise » / « Veuillez entrer une adresse email valide ».
+  - Mot de passe : « Le mot de passe est requis » / « Le mot de passe doit contenir au moins 8 caractères ».
+- Bouton `[disabled]="form.invalid || loading()"` : désactivé si le formulaire est invalide OU si une requête est en cours.
+- Texte du bouton dynamique : « Se connecter » → « Connexion… » pendant le chargement.
+- Attributs `autocomplete` sur les inputs (bonne pratique UX).
+
+---
+
+#### 3. `register-page.ts` + `register-page.html` : Inscription renforcée
+
+**Modifications du composant :**
+- Ajout de `Validators.minLength(2)` sur le champ `name`.
+- Ajout de `Validators.minLength(8)` sur le champ `password`.
+- Ajout du Signal `loading`.
+- Redirection vers `/tracks` (au lieu de `/profile`) après inscription réussie, cohérent avec le comportement de la connexion.
+- Suppression des `console.debug` / `console.error` remplacés par le Signal `error`.
+
+**Modifications du template :**
+- Messages d'erreur par champ sur les trois champs (nom, email, mot de passe).
+- Bouton désactivé si formulaire invalide ou chargement en cours.
+- Texte du bouton dynamique : « Créer mon compte » → « Inscription… ».
+
+---
+
+#### 4. `profile-page.ts` + `profile-page.html` : Profil automatique et feedback utilisateur
+
+**Modifications du composant :**
+- Implémentation de `OnInit` : le profil est désormais chargé automatiquement à l'ouverture de la page (`ngOnInit` → `auth.profile().subscribe(...)`) sans que l'utilisateur ait à cliquer sur « Charger mon profil ».
+- Ajout du Signal `saved` : passe à `true` après un enregistrement réussi pour afficher un message de confirmation.
+- Ajout du Signal `error` : affiche le message d'erreur renvoyé par l'API (ou un message générique) en cas d'échec.
+- Ajout du Signal `loading` : désactive le bouton pendant la requête `PUT`.
+- Suppression de tous les `console.debug` et `console.error` : l'état est géré par les Signals visibles dans l'UI.
+- Ajout de `Validators.minLength(2)` sur le champ nom.
+
+**Modifications du template :**
+- Suppression du bouton manuel « Charger mon profil ».
+- Affichage d'un état de chargement (« Chargement du profil… ») tant que `currentUser` est `null`.
+- Message de succès (« Nom mis à jour avec succès ✓ ») via `@if (saved())`.
+- Message d'erreur via `@if (error())`.
+- Validation par champ sur le nom.
+- Bouton désactivé si formulaire invalide ou loading.
+
+---
+
+#### 5. `app.ts` + `app.html` : Navigation réactive et déconnexion
+
+**Modifications du composant :**
+- Injection de `AuthService` (exposé en `readonly auth` pour être lisible dans le template).
+- Injection de `Router`.
+- Ajout de la méthode `logout()` : appelle `auth.logout()` (nettoie `localStorage` et remet les Signals à `null`) puis redirige vers `/login`.
+
+**Modifications du template :**
+- La barre de navigation est maintenant **réactive au Signal `auth.token()`** :
+  - Si connecté (`auth.token()` est non nul) : affiche « Backing tracks », « Profil » et un bouton « Déconnexion ».
+  - Si non connecté : affiche uniquement « Connexion » et « Créer un compte ».
+- Le bouton Déconnexion déclenche `logout()` sur le composant racine.
+
+```html
+@if (auth.token()) {
+  <a routerLink="/tracks">Backing tracks</a>
+  <a routerLink="/profile">Profil</a>
+  <button type="button" (click)="logout()">Déconnexion</button>
+} @else {
+  <a routerLink="/login">Connexion</a>
+  <a routerLink="/register">Créer un compte</a>
+}
+```
+
+---
+
+#### Vérification : build Angular
+```
+✅ ng build → 0 erreur, 0 warning : bundle : 297 kB (main.js)
+```
+
+### Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+Il s'agît de la première phase de développement du TP1. Il faut donc compléter le starter pour avoir une connexion, inscription et déconnexion fonctionnelles avec des retours visuels clairs. J'ai compris qu'il était important de séparer les responsabilités : les composants ne touchent jamais HttpClient directement car ils délèguent tout à AuthService. Les Signals permettent à l'interface de se mettre à jour automatiquement dès que l'état change (cela peut être dû à une connexion, déconnexion ou une modification du nom de l'utilisateur) sans qu'il soit nécessaire de recharger la page. La gestion du 401 dans l'intercepteur permet de déconnecter l'utilisateur "proprement" si un token a expiré.
+
+### Modèle d'IA que j'utilise
+Le modèle d'IA que j'utilisais était initialement Gemini Code Assist (gratuit pendant un an pour les étudiants). Sauf que l'extension VSCode est obsolète car google a migré ses services dans Antigravity j'ai donc était contraint de changer d'extensions et passer sur Antigravity. Or toutes les tokens de la semaine ont été utilisés à la fin de la mission 0 du TP1 ce qui signifie que j'ai dû mettre à niveau l'abonnement pour passer au forfait Google AI Pro pour 5€49/mois afin d'avoir plus de tokens par semaine. Pour observer combien il m'en reste, je dois aller dans les paramètres de l'extension puis dans le sous menu models où je peux observer combien il me reste de tokens pour chaque IA (exemple dans la photo ci-dessous).
+![alt text](image-1.png)
+Les conseils pour l'utilisation de l'IA me viennent de l'IA elle-même ou de mon père qui, pour son travail, utilise Copilot dans VSCode.
+
+### Résumé des routes backend
+
+| Méthode | Route | Accès | Usage |
+|---|---|---|---|
+| `POST` | `/api/auth/register` | Public | Créer un nouveau compte utilisateur |
+| `POST` | `/api/auth/login` | Public | Se connecter et recevoir un JWT |
+| `GET` | `/api/users/me` | Protégé (JWT) | Charger le profil de l'utilisateur connecté |
+| `PUT` | `/api/users/me` | Protégé (JWT) | Modifier le nom de l'utilisateur connecté |
+| `GET` | `/api/tracks` | Protégé (JWT) | Lister les pistes audio avec pagination |
+| `POST` | `/api/tracks` | Protégé (JWT) | Uploader une nouvelle piste audio |
+| `GET` | `/api/tracks/:id/audio` | Protégé (JWT) | Récupérer le fichier audio d'une piste |
+
+### Tests de connexion
+
+#### Apparition d'une requête de connexion réussie
+![alt text](image-2.png)
+
+Header
+![alt text](image-3.png)
+
+Payload (Problème de sécurité car le mot de passe est affiché en clair pouvant être accessible par un renifleur)
+![alt text](image-8.png)
+
+#### Apparition d'une requête de connexion échouée
+![alt text](image-5.png)
+
+Header (erreur 401 bien renvoyé)
+![alt text](image-6.png)
+
+Payload (Problème de sécurité avec mot de passe toujours en clair)
+![alt text](image-9.png)
+
+#### Modification de /api/users/me (changement de nom)
+![alt text](image-11.png)
+
+Header
+![alt text](image-12.png)
+
+Payload
+![alt text](image-13.png)

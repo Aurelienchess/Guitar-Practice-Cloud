@@ -13,27 +13,32 @@ export class LoginPageComponent {
   private readonly router = inject(Router);
 
   readonly error = signal('');
+  readonly loading = signal(false);
+
   readonly form = new FormGroup({
-    email: new FormControl('demo@example.com', {
+    email: new FormControl('', {
       nonNullable: true,
       validators: [Validators.required, Validators.email],
     }),
-    password: new FormControl('Demo1234!', {
+    password: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required],
+      validators: [Validators.required, Validators.minLength(8)],
     }),
   });
 
   submit(): void {
-    const values = this.form.getRawValue();
-    this.auth.login(values.email, values.password).subscribe({
+    if (this.form.invalid) return;
+    this.error.set('');
+    this.loading.set(true);
+    const { email, password } = this.form.getRawValue();
+    this.auth.login(email, password).subscribe({
       next: () => {
-        console.debug('[LoginPage] Connexion réussie');
+        this.loading.set(false);
         void this.router.navigateByUrl('/tracks');
       },
-      error: (error: { error?: { message?: string } }) => {
-        console.error('[LoginPage] Échec de connexion', error);
-        this.error.set(error.error?.message ?? 'Erreur de connexion');
+      error: (err: { error?: { message?: string } }) => {
+        this.loading.set(false);
+        this.error.set(err.error?.message ?? 'Identifiants incorrects.');
       },
     });
   }

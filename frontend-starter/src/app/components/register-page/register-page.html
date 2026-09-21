@@ -1,11 +1,48 @@
 <section class="card">
   <h1>Créer un compte</h1>
   <form [formGroup]="form" (ngSubmit)="submit()">
-    <label>Nom<input formControlName="name" /></label>
-    <label>Email<input type="email" formControlName="email" /></label>
-    <label>Mot de passe<input type="password" formControlName="password" /></label>
-    <button type="submit">Créer mon compte</button>
+
+    <label>
+      Nom
+      <input formControlName="name" autocomplete="name" />
+    </label>
+    @if (form.get('name')?.invalid && form.get('name')?.touched) {
+      @if (form.get('name')?.hasError('required')) {
+        <p class="field-error">Le nom est requis.</p>
+      } @else if (form.get('name')?.hasError('minlength')) {
+        <p class="field-error">Le nom doit contenir au moins 2 caractères.</p>
+      }
+    }
+
+    <label>
+      Email
+      <input type="email" formControlName="email" autocomplete="email" />
+    </label>
+    @if (form.get('email')?.invalid && form.get('email')?.touched) {
+      @if (form.get('email')?.hasError('required')) {
+        <p class="field-error">L'adresse email est requise.</p>
+      } @else if (form.get('email')?.hasError('email')) {
+        <p class="field-error">Veuillez entrer une adresse email valide.</p>
+      }
+    }
+
+    <label>
+      Mot de passe
+      <input type="password" formControlName="password" autocomplete="new-password" />
+    </label>
+    @if (form.get('password')?.invalid && form.get('password')?.touched) {
+      @if (form.get('password')?.hasError('required')) {
+        <p class="field-error">Le mot de passe est requis.</p>
+      } @else if (form.get('password')?.hasError('minlength')) {
+        <p class="field-error">Le mot de passe doit contenir au moins 8 caractères.</p>
+      }
+    }
+
+    <button type="submit" [disabled]="form.invalid || loading()">
+      @if (loading()) { Inscription… } @else { Créer mon compte }
+    </button>
   </form>
+
   @if (error()) {
     <p class="error">{{ error() }}</p>
   }
