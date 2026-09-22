@@ -391,7 +391,7 @@ Payload
 
 # Rapport d'usage de l'IA - TP2
 
-## 1. Mission 2 — Bibliothèque paginée côté serveur
+## 1. Mission 2 : Bibliothèque paginée côté serveur
 
 **Prompt :**
 > « Passons maintenant au TP2. Reprends connaissance en détails de SUJET_ETUDIANT_TP2.md et implémente ou vérifie TrackService.list(page, limit) (sans modifier le backend qui fournit déjà GET /api/tracks?page=1&limit=5) afin qu'il transmette réellement page et limit. Le flux attendu est composant bibliothèque → TrackService → HttpClient → GET /api/tracks?page=...&limit=... Affiche les résultats avec @for, l’état vide avec @empty et le chargement avec @if. Ajouter les boutons « Précédent » et « Suivant », désactivés aux bornes. Après chaque changement de page, effectuer une nouvelle requête HTTP. Il est interdit de récupérer toutes les pistes puis de les découper localement dans Angular. »
@@ -488,3 +488,102 @@ Ce qui est notamment visible dans mongoDB où chaque morceau est associé à un 
 De plus un système de sécurité est pensé pour ne pas pouvoir y accéder depuis la barre d'adresse du navigateur :
 ![alt text](image-26.png)
 Le middleware auth bloque la requête avant même de chercher en base.
+
+## 2. Mission 3 : Analyse amélioration de l’upload et de la lecture audio
+**Prompt pour le code de la mission 3 :**
+> "Pour la mission 3 j'aimerais que tu ajoute une pré-validation côté frontend avec le contrôle de taille max (25mo) et des types MIME comme wav par exemple. Le tout dès la sélection du fichier. Pendant l'upload d'un fichier veux que tu désactive le bouton le bouton et marque "envoi en cours" pour qu'il n'y est pas deux soumissions simultanées. De plus veux ajouter un message de succès et vider le formulaire une fois l'upload terminé. Améliore un peu plus le suivi de lecture et mets plus d'informations dans les cartes musique. Enfin révoque ObjectURL si l'utilisateur quitte la page."
+
+Pour la phase de réponse aux questions de la mission 3, l'ia a été utilisé pour trouver les endroits précis du code où se situent les sujets traîtés.
+### Fichiers et méthodes où se trouvent : 
+
+#### Le choix du fichier
+- **Fichier :** `frontend-starter/src/app/components/tracks-page/tracks-page.html` et `tracks-page.ts`
+- **Méthode / Élément :** L'élément `<input type="file" accept="audio/*" (change)="choose($event)">` déclenche la méthode `choose(event: Event)` dans `TracksPageComponent`. Le fichier sélectionné est extrait avec `(event.target as HTMLInputElement).files?.[0]`.
+
+#### la construction du `FormData`
+- Fichier : `frontend-starter/src/app/shared/services/track.service.ts`
+- Méthode : Méthode `upload(file: File, title: string)`. Un objet standard JavaScript `const body = new FormData();` est instancié puis alimenté avec `body.append('audio', file)` et `body.append('title', title)`.
+
+#### l’appel HTTP d’upload
+- Fichier : `frontend-starter/src/app/shared/services/track.service.ts` (appelé par `TracksPageComponent.upload()`)
+- Méthode : `this.http.post<Track>('/api/tracks', body)` qui émet une requête HTTP `POST` multipart vers l'API.
+
+#### la récupération du `Blob`
+- Fichier : `frontend-starter/src/app/shared/services/track.service.ts`
+- Méthode : Méthode `audio(id: string)`. L'appel `this.http.get('/api/tracks/${id}/audio', { responseType: 'blob' })` demande à Angular de traiter le corps de la réponse comme un objet binaire `Blob`.
+
+#### la création de l’`ObjectURL`
+- Fichier : `frontend-starter/src/app/components/tracks-page/tracks-page.ts`
+- Méthode : Méthode `play(track: Track)` dans le callback de succès `next: (blob) => { ... }` via l'instruction `URL.createObjectURL(blob)`.
+
+#### l’affectation au lecteur `<audio>`
+- Fichier : `frontend-starter/src/app/components/tracks-page/tracks-page.ts` et `tracks-page.html`
+- Méthode / Élément : Dans `play()`, la valeur retournée par `createObjectURL` est enregistrée dans le signal `audioUrl.set(...)`. Dans le template HTML, la balise `<audio [src]="audioUrl()" controls autoplay>` est liée de manière réactive à ce signal.
+
+#### la révocation de l’ancienne URL
+- Fichier : `frontend-starter/src/app/components/tracks-page/tracks-page.ts`
+- Méthode : 
+  - Dans `play(track: Track)` avant de générer une nouvelle URL : `if (previousUrl) URL.revokeObjectURL(previousUrl);`
+  - À la destruction du composant avec le hook `DestroyRef.onDestroy(() => { if (url) URL.revokeObjectURL(url); })` pour éviter les fuites mémoire lors d'un changement de page/route.
+
+### Explications du flux composants → service → `HttpClient` → API, puis API → `Blob` → `ObjectURL` → lecteur audio
+
+- Déclenchement : L'utilisateur clique sur le bouton « play » d'un morceau dans `TracksPageComponent`.
+- Délégation au service : Le composant appelle `this.service.audio(track.id)`. Le composant ne manipule pas directement les URL d'API.
+- Requête HTTP : `TrackService` délègue à `HttpClient.get('/api/tracks/:id/audio', { responseType: 'blob' })`.
+- Interception JWT : L'intercepteur `authInterceptor` intercepte la requête, lit le signal `token()` de `AuthService` et ajoute l'en-tête HTTP `Authorization: Bearer <token>`.
+- Traitement API Express : Le serveur vérifie le JWT (`auth`), s'assure en base MongoDB que `ownerId === req.auth.sub`, puis envoie le flux binaire du fichier via `res.sendFile()`.
+- Réception en `Blob` : `HttpClient` reçoit l'ensemble des octets audio et produit un objet mémoire `Blob` (type `audio/mpeg`, etc.).
+- Génération de l'`ObjectURL` : `TracksPageComponent` reçoit le `Blob` dans l'Observer `next`, révoque l'ancienne URL s'il y en avait une, et appelle `URL.createObjectURL(blob)` qui retourne une URL locale temporaire de type `blob:http://localhost:4200/...`.
+- Lecture : L'URL est transmise au signal `audioUrl`, ce qui met à jour l'attribut `src` de l'élément HTML `<audio>`, déclenchant la lecture audio.
+
+### Intercepteur qui ajoute le JWT à la requête audio
+Comme le montre la capture d'écran ci-dessous l’intercepteur ajoute le JWT à la requête audio : sur la ligne de requête `audio`, le statut est `200 OK` avec un type `fetch` (initié par `main.js`), ce qui prouve qu'elle a été émise par `HttpClient` et a pu recevoir le header `Authorization: Bearer <token>`. Juste en dessous apparaît la ligne `blob:http://localhost:4200/...` avec le statut `206 Partial Content` et le type `media`, correspondant à la lecture native par le navigateur de l'URL générée.
+![alt text](image-27.png)
+Dans le code cela se situe dans le fichier `frontend-starter/src/app/shared/interceptors/auth.interceptor.ts`. Chaque requête sortante exécutée par `HttpClient` est interceptée :
+```typescript
+const token = auth.token();
+const req = token
+  ? request.clone({ setHeaders: { Authorization: `Bearer ${token}` } })
+  : request;
+```
+Une URL directement placée dans `src` (ex: `<audio src="/api/tracks/:id/audio">`) ne reçoit pas automatiquement ce header car c'est le moteur multimédia interne du navigateur web qui télécharge la ressource de façon autonome en HTTP standard. Ce moteur natif ne passe ni par Angular, ni par `HttpClient`, ni par les intercepteurs TypeScript, et n'a pas accès au token stocké en mémoire dans notre application.
+
+### Contrôle du multipart et construction du FormData
+Côté **backend** (`backend/src/app.js`) :
+- `upload.single("audio")` impose la présence d'un champ fichier nommé exactement `audio`.
+- Multer applique une limite de taille stricte : `limits: { fileSize: 25 * 1024 * 1024 }` (25 Mo).
+- Multer applique un `fileFilter` qui rejette tout fichier dont le `file.mimetype` ne fait pas partie des types acceptés (`audio/mpeg`, `audio/wav`, `audio/ogg`, etc.).
+- Le contrôleur lit le titre dans `req.body.title` ou utilise par défaut le nom d'origine `req.file.originalname`.
+
+Côté **frontend** (`TrackService.upload()`) :
+- L'objet `FormData` est construit avec les deux clés requises :
+  ```typescript
+  const body = new FormData();
+  body.append('audio', file);
+  body.append('title', title);
+  ```
+
+### La validation frontend améliore l’expérience mais ne remplace jamais la validation backend
+La validation frontend avec la vérification de la taille et du type dès la sélection améliore  l'expérience utilisateur car il est alerté en cas d'erreur sans attendre le téléchargement inutile d'un fichier lourd ce qui permet d'éviter de consommer de la bande passante pour une requête destinée à l'échec.
+
+Cependant, cela ne remplace pas la validation backend car le frontend s'exécute sur la machine cliente. Or un utilisateur malveillant peut facilement contourner les validations frontend. Après avoir demandé comment à l'IA : en désactivant le JavaScript, en modifiant le code dans les DevTools, ou en envoyant une requête forgée via cURL, Postman ou un script Python. Ce qui explique pourquoi seule la validation backend garantit l'intégrité, la stabilité et la sécurité du serveur.
+
+### Mémoire buffering et streaming
+
+#### Envoie des fichiers par le backend
+Le backend utilise `res.sendFile(audioPath)` fourni par Express. En interne, cette méthode s'appuie sur `fs.createReadStream()` de Node.js. Le fichier n'est donc pas chargé entièrement en mémoire vive sous forme d'un énorme buffer : il est lu petit à petit par depuis le disque et envoyé progressivement sous forme de flux réseau vers le client.
+
+#### Réception du fichier par le composant
+Avec `HttpClient` et `responseType: "blob"`, le composant Angular ne reçoit l'objet `Blob` qu'une fois le téléchargement réseau terminé. `HttpClient` accumule l'ensemble des paquets de la réponse HTTP en mémoire avant d'émettre la valeur finale dans l'Observable (`next(blob)`). Il n'y a donc pas de lecture progressive en continu dans le composant pendant le transfert.
+
+#### Chargement des fichiers audio
+Si la bibliothèque contient 100 morceaux, les 100 fichiers audio ne sont pas chargés en mémoire dès l'affichage de la liste
+car la requête de liste `TrackService.list()` appelle `GET /api/tracks` qui ne renvoie que des métadonnées textuelles JSON (`id`, `title`, `size`, `createdAt`). L'appel `TrackService.audio(track.id)` n'est déclenché que ponctuellement quand un utilisateur clique sur le bouton de lecture d'une musique (`(click)="play(track)"`).
+
+#### Différence avec l'utilisation d'une URL HTTP
+Si l'on utilisait 100 balises `<audio src="https://...">` directemes le navigateur initialiserait potentiellement 100 connexions multimédias ou préchargerait les premiers octets de chaque piste augmentant ainsi la consommation réseau et mémoire.
+En revanche, le lecteur HTML gère le buffering progressif. En effet la lecture est possible avant la fin du téléchargement. Or cela est impossible ici car la ressource exige le header d'authentification.
+
+#### URL créée par `URL.createObjectURL` obligatoirement révoquée
+L'URL générée par `URL.createObjectURL(blob)` maintient en mémoire du navigateur une référence vers l'objet `Blob`. Or pour des fichiers audio lourds, écouter plusieurs morceaux à la suite sans supprimer les URLs entraînerait une fuite de mémoire progressive pouvant saturer la RAM et faire planter l'onglet du navigateur.
