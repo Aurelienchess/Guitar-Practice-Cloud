@@ -25,7 +25,7 @@ Pour chaque mission, détailler et fournir des explications concernant : objecti
   - Traçabilité des interactions avec l'IA et tenue rigoureuse du document de synthèse `RAPPORT_IA_MODELE.md`.
 
 ### Explication du premier prompt :
-Il permet de donner à l'agent une vision globale du projet et de son environnement de travail. Je lui ai demandé de s'atarder dans un prermier temps tout particulièrement sur les fichiers .md pour que l'agent puisse prendre connaissance des conventions et des consignes concernant l'ia afin de les respecter. De plus il peut prendre connaissance des consignes des 3 tps afin qu'il ai une idée de l'ensemble de l'avancement du projet et qu'il n'anticipe pas des modifications qui arriveraient plus tard.
+Il permet de donner à l'agent une vision globale du projet et de son environnement de travail. Je lui ai demandé de s'atarder dans un prermier temps tout particulièrement sur les fichiers .md pour que l'agent puisse prendre connaissance des conventions et des consignes concernant l'ia afin de les respecter. Dès lors il est désormais en capacité d'expliquer dans ce rapport ce qu'il a fait pour chaque prompts. De plus il peut prendre connaissance des consignes des 3 tps afin qu'il ai une idée de l'ensemble de l'avancement du projet et qu'il n'anticipe pas des modifications qui arriveraient plus tard.
 
 ---
 
@@ -388,3 +388,103 @@ Header
 
 Payload
 ![alt text](image-13.png)
+
+# Rapport d'usage de l'IA - TP2
+
+## 1. Mission 2 — Bibliothèque paginée côté serveur
+
+**Prompt :**
+> « Passons maintenant au TP2. Reprends connaissance en détails de SUJET_ETUDIANT_TP2.md et implémente ou vérifie TrackService.list(page, limit) (sans modifier le backend qui fournit déjà GET /api/tracks?page=1&limit=5) afin qu'il transmette réellement page et limit. Le flux attendu est composant bibliothèque → TrackService → HttpClient → GET /api/tracks?page=...&limit=... Affiche les résultats avec @for, l’état vide avec @empty et le chargement avec @if. Ajouter les boutons « Précédent » et « Suivant », désactivés aux bornes. Après chaque changement de page, effectuer une nouvelle requête HTTP. Il est interdit de récupérer toutes les pistes puis de les découper localement dans Angular. »
+
+### Rapport de ce que l'agent a fait et analysé
+
+#### 1. Vérification du service `TrackService` (`shared/services/track.service.ts`)
+- Inspection de la méthode `list(page = 1, limit = 5)` :
+  ```typescript
+  list(page = 1, limit = 5) {
+    return this.http.get<Page<Track>>('/api/tracks', {
+      params: { page, limit },
+    });
+  }
+  ```
+- Constat : `TrackService` utilise bien l'objet `params: { page, limit }` d'Angular `HttpClient`. Lors de la requête HTTP, `HttpClient` sérialise ces paramètres en query string d'URL : `/api/tracks?page=...&limit=...`.
+- Le backend (`backend/src/app.js`) lit ces paramètres avec `req.query.page` et `req.query.limit`, puis effectue une pagination MongoDB native avec `skip((page - 1) * limit)` et `limit(limit)`.
+
+#### 2. Mise à jour de `TracksPageComponent` (`components/tracks-page/tracks-page.ts`)
+- Définition et gestion complète des Signals réactifs requis :
+  - `tracks = signal<Track[]>([])` : liste des pistes de la page actuelle.
+  - `page = signal(1)` : numéro de la page courante (démarre à 1).
+  - `pages = signal(1)` : total de pages retourné par l'API (`response.pages`).
+  - `loading = signal(false)` : indicateur de chargement réseau.
+  - `error = signal('')` : gestion des messages d'erreur HTTP.
+- Méthode `load()` :
+  - Déclenchée au montage (`constructor`) et à chaque changement de page.
+  - Appelle `this.service.list(this.page(), 5)` pour récupérer uniquement les 5 pistes de la page demandée.
+  - Met à jour `tracks`, `pages`, et bascule `loading` à `true` puis `false`.
+- Méthode `go(newPage: number)` :
+  - Vérifie les bornes (`if (page < 1 || page > this.pages() || page === this.page()) return;`).
+  - Met à jour le signal `page` puis invoque immédiatement `this.load()`, générant un nouvel appel HTTP serveur (aucune découpe locale).
+
+#### 3. Mise à jour du template (`components/tracks-page/tracks-page.html`)
+- Utilisation des nouvelles structures de contrôle Angular :
+  - `@if (loading())` : affichage du message « Chargement… ».
+  - `@for (track of tracks(); track track.id)` : rendu dynamique des cartes de morceaux.
+  - `@empty` : affichage de « Aucune piste. » si la liste reçue est vide (hors chargement).
+  - `@if (error())` : restitution des erreurs d'API éventuelles.
+- Contrôles de pagination :
+  - Bouton **« Précédent »** : désactivé si `page() <= 1 || loading()`.
+  - Indicateur textuel : `Page {{ page() }} / {{ pages() }}`.
+  - Bouton **« Suivant »** : désactivé si `page() >= pages() || loading()`.
+
+#### 4. Vérification et validation du build
+- Exécution de `npm run build` côté frontend :
+  - Compilation réussie (`0 erreur`, `0 warning`, bundle `297.54 kB`).
+
+### Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+Dans cette mission, il faut s'assurer que la pagination s'effectue intégralement côté serveur et non côté client. C'est pour ça que j'ai reprécisé une partie des consignes dans le prompt. En effet si l'application chargeait l'intégralité des pistes en mémoire pour les paginer dans le navigateur, cela poserait un problème de performance car le système pourrait considérablement ralentir pour un grand nombre de données en mémoire. 
+Alors que grâce au flux Composant → TrackService.list(page, limit) → HttpClient → API Express (skip/limit) → MongoDB, le client ne reçoit et ne stocke que les 5 éléments requis pour la page active. Enfin l'utilisation des Signals permettent de synchroniser l'état des boutons Précédent et Suivant ainsi que l'affichage des morceaux de manière réactive à chaque nouvelle action.
+
+### Captures network de l'upload d'un son invalide
+![alt text](image-21.png)
+#### Header (renvoie l'erreur 400 comme prévu)
+![alt text](image-22.png) 
+#### Payload (erreur car le format du fichier est .zip)
+![alt text](image-23.png)
+
+### Captures network de l'upload d'un son puis de la pagination et enfin de la lecture d'un son
+![alt text](image-14.png)
+
+#### Upload
+##### Header
+![alt text](image-15.png)
+##### Payload (titre donnée à la musique visible)
+![alt text](image-16.png)
+
+#### Retour en page une
+##### Header
+![alt text](image-17.png)
+##### Payload (Numéro de page et limite à la page visible)
+![alt text](image-18.png)
+
+On voit bien ici que l'utilisateur à uploadé une musique puis s'est rendu en page une, puis en page deux, puis de nouveau en page une et qu'il a terminé par lire une musique
+
+#### Lecture musique (Pas de Payload ici car il n'y a pas de requête envoyée)
+![alt text](image-19.png)
+Lecture possible grâce à blob
+![alt text](image-20.png)
+
+### Le choix de Blob
+
+Blob est un objet JavaScript représentant des données brutes sous forme binaire. Dans notre architecture Blob est utile d'un point de vu sécurité car il s'assure de la protection de la ressource par JWT par le biais de l'endpoint backend que j'ai trouvé grâce à l'ia : `GET /api/tracks/:id/audio`. C'est une protection par authentification. Les requêtes clients passent obligatoirement par l'intercepteur `authInterceptor`(nom de l'intercepteur trouvé grâce à l'ia) qui lui injecte le token JWT. Enfin, le fait que Blob soit un objet binaire sans encodage permet d'éviter de charger en mémoire toutes les pistes audio à l'avance. Le seul morceau chargé est celui demandé par l'utilisateur.
+
+### Le choix de ObjectURL
+
+Une fois le fichier audio binaire récupéré sous forme de Blob, la balise HTML `<audio>` (nom de la balise récupéré grâce à l'ia) attend une chaîne de caractères représentant une URL cara elle ne peut pas convertir du binaire. C'est donc le rôle de l'ObjectURL. Il va donc générer une URL pointant directement vers les données binaires stockées dans la mémoire vive du navigateur (par exemple `blob:http://localhost:4200/62a9a15e-91a0-4a0e-802a-19d2215c82b3` que l'on voit dans la capture d'écran ci-dessus). Cette URL est ensuite affectée directement au composant lecteur `<audio [src]="audioUrl()">`(composant lecteur récupéré grâce à l'ia). Cela permet d'améliorer les performances car la lecture commence instantanément étant donné que le flux audio est déjà téléchargé en local.
+
+### Un utilisateur a ses propres pistes audios
+En effet, chaques utilisateurs à ses propres morceaux indépendants des autres.
+Ce qui est notamment visible dans mongoDB où chaque morceau est associé à un utilisateur par le biais de ownerId :
+![alt text](image-24.png)
+De plus un système de sécurité est pensé pour ne pas pouvoir y accéder depuis la barre d'adresse du navigateur :
+![alt text](image-26.png)
+Le middleware auth bloque la requête avant même de chercher en base.
