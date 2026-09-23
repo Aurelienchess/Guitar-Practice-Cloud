@@ -587,3 +587,57 @@ En revanche, le lecteur HTML gère le buffering progressif. En effet la lecture 
 
 #### URL créée par `URL.createObjectURL` obligatoirement révoquée
 L'URL générée par `URL.createObjectURL(blob)` maintient en mémoire du navigateur une référence vers l'objet `Blob`. Or pour des fichiers audio lourds, écouter plusieurs morceaux à la suite sans supprimer les URLs entraînerait une fuite de mémoire progressive pouvant saturer la RAM et faire planter l'onglet du navigateur.
+
+## 3. Fonctionnalités avancées
+
+**Prompt :**
+> « Maintenant réalisons les tâches avancées et optionnelles de ce tp2 à savoir ### AVANCÉ — Angular Material, ### AVANCÉ — Pagination Mongoose, ## Améliorations facultatives et ## AVANCÉ — Image de couverture. Pour cela installe angular/material et pour l'image tu peux choisir l'illustration automatique (ex: tags ID3). Attention pour cette phase de programmation tu dois aussi respecter tous les attendus du tp 2. Par exemple il faudra mettre à jour API_CONTRACT.md pour la pagination Mongoose »
+
+### Rapport de ce que l'agent a fait et modifié
+
+#### 1. Pagination Mongoose (`mongoose-aggregate-paginate-v2`)
+- Backend (`backend/package.json` et `src/models/Track.js`) :
+  - Installation du module `mongoose-aggregate-paginate-v2`.
+  - Intégration du plugin dans le schéma Mongoose `schema.plugin(aggregatePaginate)`.
+- Contrôleur Backend (`backend/src/app.js`) :
+  - Remplacement de la pagination manuelle `skip`/`limit` par un pipeline d'agrégation MongoDB `Track.aggregate([...])` exécuté via `Track.aggregatePaginate(aggregate, options)`.
+  - Enrichissement de la réponse JSON avec les métadonnées de pagination avancées : `hasPrevPage`, `hasNextPage`, `prevPage`, `nextPage`, `totalDocs`, `totalPages`.
+- Contrat HTTP (`API_CONTRACT.md`) :
+  - Mise à jour formelle de la structure de réponse `Page<Track>` pour refléter les métadonnées fournies par `aggregatePaginate`.
+- Modèle Frontend (`frontend-starter/src/app/shared/models/page.model.ts`) :
+  - Ajout des propriétés optionnelles correspondantes (`hasPrevPage`, `hasNextPage`, `prevPage`, `nextPage`).
+
+#### 2. Image de couverture & extraction des tags ID3
+- Extraction automatique (`backend/src/app.js`) :
+  - Installation de la bibliothèque `music-metadata`.
+  - Lors de l'upload `POST /api/tracks`, analyse asynchrone des métadonnées du fichier audio (`parseFile(uploadedPath)`).
+  - Récupération de l'artiste (`metadata.common.artist`), de l'album (`metadata.common.album`), et de la pochette d'album (`metadata.common.picture`).
+  - Encodage direct de la pochette en Data URL base64 (`data:image/...;base64,...`) stockée dans le champ `coverImage` de la collection MongoDB.
+- Affichage dynamique (`frontend-starter/src/app/components/tracks-page/tracks-page.html`) :
+  - Rendu responsive de la pochette dans chaque card : image ID3 réelle si présente, ou illustration par défaut stylisée.
+  - Affichage de l'artiste et de l'album sous le titre de la piste.
+
+#### 3 Paginator Angular Material (`@angular/material`)
+- Installation et intégration :
+  - Installation de `@angular/material` et `@angular/cdk`.
+  - Importation de `MatPaginatorModule` dans `TracksPageComponent`.
+- Composant UI :
+  - Remplacement des boutons HTML simples par `<mat-paginator>` avec choix interactif de la taille de page (`[pageSizeOptions]="[5, 10, 20]"`), navigation complète (première, précédente, suivante, dernière) et totalisation en temps réel.
+  - Liaison avec la méthode `onMatPageChange(event: PageEvent)` qui met à jour les signaux `page` et `limit` puis recharge la liste serveur.
+
+#### Barre de progression de l'upload :
+  - Ajout de `uploadWithProgress(file, title)` dans `TrackService` avec `reportProgress: true` et `observe: 'events'`.
+  - Écoute des événements `HttpEventType.UploadProgress` dans `TracksPageComponent` pour mettre à jour un signal `uploadProgress` (0 à 100%).
+  - Rendu d'une jauge fluide animée dans le formulaire d'import.
+#### Suppression avec confirmation (`DELETE /api/tracks/:id`) :
+  - Ajout de `TrackService.delete(id: string)`.
+  - Ajout d'un bouton de suppression sur chaque carte de morceau avec confirmation.
+  - État de suppression réactif (`deletingId`) et rechargement dynamique avec gestion automatique de la pagination si la page courante se vide.
+#### Formatage lisible des tailles et des dates :
+  - Méthode `formatSize(bytes)` : conversion en Ko, Mo, Go avec un chiffre après la virgule.
+  - Méthode `formatDate(dateStr)` : mise en forme en date/heure locale française (`dd/MM/yyyy HH:mm`).
+#### Filtre instantané par titre, artiste ou album :
+  - Ajout d'un champ de recherche avec `FormControl` et signal dérivé `computed()` filtrant instantanément les cartes visibles sans solliciter inutilement le réseau.
+
+### Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+L'utilisation du plugin de pagination Mongoose permet d'écrire des requêtes optimisées et extensibles côté base de données tout en garantissant un contrat HTTP. L'intégration d'Angular Material apporte des composants d'accessibilité comme le paginator configurable. Enfin, l'extraction automatique des métadonnées ID3 et la barre de progression d'upload offrent un retour visuel immédiat à l'utilisateur, ce qui est utile lors de la manipulation de fichiers volumineux.

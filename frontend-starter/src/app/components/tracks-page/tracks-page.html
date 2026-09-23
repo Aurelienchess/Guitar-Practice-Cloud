@@ -7,10 +7,17 @@
 
   <div class="grid">
     <article class="card">
-      <h2>Importer</h2>
-      <label>Titre<input [formControl]="title" placeholder="Titre du morceau" /></label>
+      <h2>Importer un morceau</h2>
+      <label>Titre<input [formControl]="title" placeholder="Titre du morceau (ou extrait auto des tags)" /></label>
       <label>Fichier audio (max 25 Mo)<input #fileInput type="file" accept="audio/*" (change)="choose($event)" /></label>
       
+      @if (uploading()) {
+        <div class="progress-box">
+          <div class="progress-bar" [style.width.%]="uploadProgress()"></div>
+        </div>
+        <small>Envoi en cours : {{ uploadProgress() }}%</small>
+      }
+
       @if (uploadSuccess()) {
         <p class="success">{{ uploadSuccess() }}</p>
       }
@@ -25,10 +32,19 @@
     </article>
 
     <article class="card">
-      <div class="row">
+      <div class="row header-row">
         <h2>Mes pistes</h2>
         <button type="button" (click)="load()" [disabled]="loading()">Actualiser</button>
       </div>
+
+      <!-- Filtre par titre -->
+      <div class="search-box">
+        <input [formControl]="searchFilter" placeholder="🔍 Filtrer par titre, artiste ou album…" />
+      </div>
+
+      @if (deleteSuccess()) {
+        <p class="success">{{ deleteSuccess() }}</p>
+      }
 
       @if (error()) {
         <p class="error">{{ error() }}</p>
@@ -38,31 +54,54 @@
         <p>Chargement…</p>
       }
 
-      @for (track of tracks(); track track.id) {
-        <div class="track" [class.playing]="currentTrack()?.id === track.id">
-          <div>
-            <b>{{ track.title }}</b>
-            <small>{{ track.originalName }} · {{ track.size }} octets · {{ track.mimeType }}</small>
-            <small>Ajouté le {{ track.createdAt.slice(0, 10) }}</small>
+      @for (track of filteredTracks(); track track.id) {
+        <div class="track-card" [class.playing]="currentTrack()?.id === track.id">
+          <div class="track-cover">
+            @if (track.coverImage) {
+              <img [src]="track.coverImage" [alt]="'Pochette ' + track.title" />
+            } @else {
+              <div class="default-cover">🎵</div>
+            }
           </div>
-          <button type="button" (click)="play(track)" [attr.aria-label]="'Lire ' + track.title">▶</button>
+
+          <div class="track-info">
+            <b>{{ track.title }}</b>
+            @if (track.artist || track.album) {
+              <small class="meta-artist">{{ track.artist }} {{ track.album ? '— ' + track.album : '' }}</small>
+            }
+            <small>{{ track.originalName }} · {{ formatSize(track.size) }} · {{ track.mimeType }}</small>
+            <small>Ajouté le {{ formatDate(track.createdAt) }}</small>
+          </div>
+
+          <div class="track-actions">
+            <button type="button" class="btn-play" (click)="play(track)" [attr.aria-label]="'Lire ' + track.title">▶</button>
+            <button type="button" class="btn-delete" (click)="deleteTrack(track)" [disabled]="deletingId() === track.id" aria-label="Supprimer la piste">
+              @if (deletingId() === track.id) { … } @else { 🗑 }
+            </button>
+          </div>
         </div>
       } @empty {
         @if (!loading()) {
-          <p>Aucune piste.</p>
+          <p class="empty-msg">Aucune piste trouvée.</p>
         }
       }
 
-      <div class="pager">
-        <button type="button" (click)="go(page() - 1)" [disabled]="page() <= 1 || loading()">Précédent</button>
-        <span>Page {{ page() }} / {{ pages() }}</span>
-        <button type="button" (click)="go(page() + 1)" [disabled]="page() >= pages() || loading()">Suivant</button>
-      </div>
+      <!-- Pagination avancée Angular Material -->
+      <mat-paginator
+        [length]="total()"
+        [pageSize]="limit()"
+        [pageIndex]="page() - 1"
+        [pageSizeOptions]="[5, 10, 20]"
+        [showFirstLastButtons]="true"
+        (page)="onMatPageChange($event)"
+        aria-label="Sélectionner la page des morceaux"
+      >
+      </mat-paginator>
 
       @if (audioUrl()) {
         <div class="player-container">
           @if (currentTrack(); as track) {
-            <p>Lecture en cours : <b>{{ track.title }}</b></p>
+            <p>Lecture en cours : <b>{{ track.title }}</b> {{ track.artist ? 'par ' + track.artist : '' }}</p>
           }
           <audio [src]="audioUrl()" controls autoplay></audio>
         </div>

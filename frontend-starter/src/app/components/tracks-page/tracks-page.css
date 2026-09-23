@@ -6,6 +6,117 @@
   margin: 0.5rem 0;
 }
 
+.search-box {
+  margin: 0.8rem 0;
+}
+
+.search-box input {
+  width: 100%;
+}
+
+.progress-box {
+  width: 100%;
+  height: 8px;
+  background: #e1ebe7;
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 0.6rem 0 0.3rem 0;
+}
+
+.progress-bar {
+  height: 100%;
+  background: #1d755e;
+  transition: width 0.2s ease-in-out;
+}
+
+.track-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.8rem;
+  border-bottom: 1px solid #e1ebe7;
+  border-radius: 8px;
+  transition: background-color 0.15s ease;
+}
+
+.track-card:hover {
+  background-color: #f7faf9;
+}
+
+.track-card.playing {
+  background-color: #e8f3ef;
+  border-left: 4px solid #1d755e;
+}
+
+.track-cover {
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #e1ebe7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.track-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.default-cover {
+  font-size: 1.5rem;
+}
+
+.track-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.track-info b {
+  display: block;
+  font-size: 1rem;
+  color: #17312a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta-artist {
+  color: #1d755e;
+  font-weight: 600;
+  margin: 0.15rem 0;
+}
+
+.track-info small {
+  display: block;
+  color: #61756f;
+  font-size: 0.8rem;
+}
+
+.track-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-play {
+  padding: 0.6rem 0.9rem;
+  background: #1d755e;
+}
+
+.btn-delete {
+  padding: 0.6rem 0.8rem;
+  background: #c94a4a;
+  color: white;
+}
+
+.btn-delete:hover:not(:disabled) {
+  background: #a83232;
+}
+
 .player-container {
   margin-top: 1rem;
   padding: 0.8rem;
@@ -18,9 +129,7 @@
   font-size: 0.9rem;
 }
 
-.track.playing {
-  background-color: #e8f3ef;
-  border-radius: 6px;
-  padding-left: 0.5rem;
-  padding-right: 0.5rem;
+mat-paginator {
+  background: transparent;
+  margin-top: 0.5rem;
 }

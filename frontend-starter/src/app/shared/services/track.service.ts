@@ -1,5 +1,6 @@
 import { inject, Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpEvent } from '@angular/common/http';
+import { Observable } from 'rxjs';
 import { Page } from '../models/page.model';
 import { Track } from '../models/track.model';
 
@@ -19,6 +20,21 @@ export class TrackService {
     body.append('audio', file);
     body.append('title', title);
     return this.http.post<Track>('/api/tracks', body);
+  }
+
+  /** Upload avec suivi précis de la progression HTTP. */
+  uploadWithProgress(file: File, title: string): Observable<HttpEvent<Track>> {
+    const body = new FormData();
+    body.append('audio', file);
+    body.append('title', title);
+    return this.http.post<Track>('/api/tracks', body, {
+      reportProgress: true,
+      observe: 'events',
+    });
+  }
+
+  delete(id: string) {
+    return this.http.delete<void>(`/api/tracks/${id}`);
   }
 
   audio(id: string) {

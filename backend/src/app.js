@@ -6,6 +6,8 @@ import fs from "node:fs";
 import fsPromises from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
+import mongoose from "mongoose";
+import { parseFile } from "music-metadata";
 import { User } from "./models/User.js";
 import { Track } from "./models/Track.js";
 
@@ -251,7 +253,7 @@ export function createApp() {
       const user = await User.findByIdAndUpdate(
         req.auth.sub,
         { $set: { name: req.body?.name } },
-        { new: true, runValidators: true },
+        { returnDocument: "after", runValidators: true },
       );
 
       if (!user) {
@@ -267,69 +269,60 @@ export function createApp() {
     }
   });
 
-  /** Retourne une page des pistes appartenant exclusivement à l'utilisateur. */
+  /** Retourne une page des pistes appartenant exclusivement à l'utilisateur (via mongoose-aggregate-paginate-v2). */
   app.get("/api/tracks", auth, async (req, res, next) => {
     try {
       const page = Math.max(1, Number(req.query.page) || 1);
-      const limit = Math.min(20, Math.max(1, Number(req.query.limit) || 5));
-      const filter = { ownerId: req.auth.sub };
+      const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 5));
+      const ownerId = new mongoose.Types.ObjectId(req.auth.sub);
 
-      console.log(`[tracks] Lecture page=${page}, limit=${limit}, user=${req.auth.sub}`);
+      console.log(`[tracks] Lecture aggregatePaginate page=${page}, limit=${limit}, user=${req.auth.sub}`);
 
-      // La lecture des pistes et le comptage total sont parallélisés pour réduire la latence.
-      // on utilise Promise.all pour exécuter les deux opérations en parallèle. 
-      // Track.find() récupère les pistes de l'utilisateur avec pagination, 
-      // tandis que Track.countDocuments() compte le nombre total de pistes pour cet utilisateur.
-      // Promise.all attend que les deux opérations soient terminées avant de continuer et les résultats
-        // sont stockés dans les variables items et total.
-      const [items, total] = await Promise.all([
-        Track.find(filter)
-          .sort({ createdAt: -1 })
-          .skip((page - 1) * limit)
-          .limit(limit)
-          .select("-storedName")
-          .lean(),
-        Track.countDocuments(filter),
+      // Pipeline d'agrégation MongoDB ciblant les pistes de l'utilisateur
+      const aggregate = Track.aggregate([
+        { $match: { ownerId } },
+        { $sort: { createdAt: -1 } },
+        { $project: { storedName: 0 } },
       ]);
 
-      // items.map(track) crée un nouveau tableau publicItems en transformant chaque piste pour inclure 
-      // uniquement les champs nécessaires à l'API.
-      // L'identifiant MongoDB (_id) est converti en chaîne de caractères (id) pour être plus lisible 
-      // côté frontend.
-      // Le champ _id (généré par MongoDB) est supprimé pour éviter de l'exposer dans la réponse JSON.
-      const publicItems = items.map((track) => ({
+      const options = {
+        page,
+        limit,
+      };
+
+      const result = await Track.aggregatePaginate(aggregate, options);
+
+      // Normalisation des documents en format public compatible frontend
+      const items = result.docs.map((track) => ({
         ...track,
         id: String(track._id),
+        ownerId: String(track.ownerId),
         _id: undefined,
       }));
 
-      console.log(`[tracks] ${publicItems.length} piste(s) envoyée(s) sur ${total}`);
+      console.log(`[tracks] ${items.length} piste(s) envoyée(s) sur ${result.totalDocs} (page ${result.page}/${result.totalPages})`);
 
-      // envoi de la réponse JSON avec les pistes publiques, la page actuelle, la limite par page, 
-      // le nombre total de pistes et le nombre total de pages.
+      // Réponse enrichie et conforme au contrat mis à jour
       res.json({
-        items: publicItems,
-        page,
-        limit,
-        total,
-        pages: Math.max(1, Math.ceil(total / limit)),
+        items,
+        page: result.page,
+        limit: result.limit,
+        total: result.totalDocs,
+        pages: result.totalPages,
+        hasPrevPage: result.hasPrevPage,
+        hasNextPage: result.hasNextPage,
+        prevPage: result.prevPage,
+        nextPage: result.nextPage,
       });
     } catch (error) {
-      console.error("[tracks] Erreur de pagination", error);
+      console.error("[tracks] Erreur de pagination aggregatePaginate", error);
       next(error);
     }
   });
 
   /**
    * Reçoit le champ multipart audio et le champ texte title.
-   * upload.single("audio") traite un seul fichier et le place dans req.file,
-   * tandis que req.body.title contient le champ texte associé.
-   * C'est ici qu'est fait l'upload de fichiers sur le serveur. 
-   * Le middleware auth vérifie le JWT avant d'accepter l'upload.
-   * Le middleware upload.single("audio") traite le fichier audio envoyé dans le champ "audio" du formulaire
-   * ou de l'appel depuis le frontend avec un objet FormData.
-   * Si le fichier est accepté, il est stocké sur le disque et ses métadonnées sont enregistrées 
-   * dans MongoDB.
+   * Extrait les métadonnées ID3 (artiste, album, pochette) et enregistre la piste.
    */
   app.post(
     "/api/tracks",
@@ -342,6 +335,28 @@ export function createApp() {
           return res.status(400).json({ message: "Fichier audio requis" });
         }
 
+        const uploadedPath = path.join(UPLOADS, req.file.filename);
+        let artist = "";
+        let album = "";
+        let coverImage = "";
+
+        // Extraction automatique des métadonnées ID3 via music-metadata
+        try {
+          const metadata = await parseFile(uploadedPath);
+          artist = metadata.common.artist || "";
+          album = metadata.common.album || "";
+
+          // Extraction de l'image de couverture si présente dans les tags ID3
+          const picture = metadata.common.picture?.[0];
+          if (picture) {
+            const base64 = Buffer.from(picture.data).toString("base64");
+            coverImage = `data:${picture.format};base64,${base64}`;
+            console.log(`[tracks] Image de couverture extraite (${picture.format})`);
+          }
+        } catch (metaErr) {
+          console.warn("[tracks] Impossible d'extraire les tags ID3 :", metaErr.message);
+        }
+
         const track = await Track.create({
           ownerId: req.auth.sub,
           title: req.body.title || req.file.originalname,
@@ -349,9 +364,12 @@ export function createApp() {
           storedName: req.file.filename,
           mimeType: req.file.mimetype,
           size: req.file.size,
+          artist,
+          album,
+          coverImage,
         });
 
-        console.log(`[tracks] Upload enregistré : ${track.id}`);
+        console.log(`[tracks] Upload enregistré avec métadonnées : ${track.id}`);
         res.status(201).json(track.toPublic());
       } catch (error) {
         console.error("[tracks] Erreur après l'enregistrement du fichier", error);
