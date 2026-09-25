@@ -828,3 +828,14 @@ Ce test unitaire valide la fonction de pagination : les paramètres valides (`pa
 #### Erreur 404 si lecture audio d'un morceau inexistant ou non possédé
 Le test vérifie l'étanchéité des ressources entre utilisateurs : lorsqu'un utilisateur authentifié tente de lire un morceau qui ne lui appartient pas (ou inexistant) via `GET /api/tracks/:id/audio`, la clause de recherche `{ _id: req.params.id, ownerId: req.auth.sub }` ne trouve aucun document correspondant. Le serveur bloque l'accès et répond avec une erreur `404 Piste inconnue` sans divulguer le fichier audio.
 ![alt text](image-36.png)
+
+### Capture Network d’un upload et d’une suppression
+![alt text](image-37.png)
+Ici on remarque qu'il y a un upload puis une suppression et qu'à chaque fois, la pagination et mise à jour.
+#### Upload
+##### Header (Created en 201)
+![alt text](image-38.png)
+##### Payload (audio et title)
+![alt text](image-39.png)
+#### Suppression (Delete en 204)
+![alt text](image-40.png)
