@@ -8,8 +8,8 @@
   <div class="grid">
     <article class="card">
       <h2>Importer un morceau</h2>
-      <label>Titre<input [formControl]="title" placeholder="Titre du morceau (ou extrait auto des tags)" /></label>
-      <label>Fichier audio (max 25 Mo)<input #fileInput type="file" accept="audio/*" (change)="choose($event)" /></label>
+      <label>Titre<input [formControl]="title" [disabled]="uploading()" placeholder="Titre du morceau (ou extrait auto des tags)" /></label>
+      <label>Fichier audio (max 25 Mo)<input #fileInput type="file" accept="audio/*" [disabled]="uploading()" (change)="choose($event)" /></label>
       
       @if (uploading()) {
         <div class="progress-box">

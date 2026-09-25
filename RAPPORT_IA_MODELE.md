@@ -641,3 +641,136 @@ L'URL générée par `URL.createObjectURL(blob)` maintient en mémoire du naviga
 
 ### Ce que j'en ai compris, pourquoi j'ai voulu faire ça
 L'utilisation du plugin de pagination Mongoose permet d'écrire des requêtes optimisées et extensibles côté base de données tout en garantissant un contrat HTTP. L'intégration d'Angular Material apporte des composants d'accessibilité comme le paginator configurable. Enfin, l'extraction automatique des métadonnées ID3 et la barre de progression d'upload offrent un retour visuel immédiat à l'utilisateur, ce qui est utile lors de la manipulation de fichiers volumineux.
+
+# Rapport d'usage de l'IA - TP3
+
+## 1. Mission 5 : Suppression d'une piste
+
+**Prompt :**
+> « Pour la Mission 5 du TP3, implémentons la suppression d'une piste audio en respectant l'architecture Angular standalone et le contrat API. Il faut donc ajouter une action « Supprimer » sur chaque card avec une boîte de confirmation. Désactive le bouton et éviter les doubles clics pendant la requête. Utilise le composant angular qui permet de notifier l'utilisateur du succès ou de l'erreur avec un message. Refresh la liste après une suppression et recule d'une page si la dernière page est vide. Enfin gère les erreurs HTTP en renvoyant à l'utilisateur une erreur visuelle. »
+
+### Rapport de ce que l'agent a fait et analysé
+
+- **Vérification et enrichissement du service `TrackService` (`shared/services/track.service.ts`) :**
+  - Ajout de la méthode `delete(id: string)` retournant un `Observable<void>` via `this.http.delete<void>('/api/tracks/' + id)`.
+  - Respect strict du principe de séparation des responsabilités : `HttpClient` reste encapsulé dans le service, les composants n'y accèdent pas directement.
+- **Intégration d'Angular Material SnackBar (`TracksPageComponent`) :**
+  - Ajout du fournisseur `provideAnimationsAsync()` dans `src/main.ts` et alignement de la dépendance `@angular/animations`.
+  - Importation de `MatSnackBarModule` et injection de `MatSnackBar` via `inject(MatSnackBar)`.
+- **Implémentation de la méthode `deleteTrack(track: Track)` dans `TracksPageComponent` :**
+  - **Prévention des doubles clics :** garde immédiate `if (this.deletingId()) return;` et désactivation dynamique du bouton pendant le traitement.
+  - **Confirmation utilisateur :** vérification préalable bloquante via `window.confirm(...)`.
+  - **Notification réactive :** appel de `this.snackBar.open(message, 'Fermer', { duration: 4000 })` pour informer l'utilisateur sans bloquer l'UI.
+  - **Gestion de la mémoire et du lecteur audio :** si la piste en cours de lecture (`currentTrack`) est celle supprimée, elle est réinitialisée et son `ObjectURL` binaire est immédiatement révoquée avec `URL.revokeObjectURL(previousUrl)`.
+  - **Maintien de la cohérence de pagination :** si la piste supprimée était la dernière de la page courante (`this.tracks().length === 1 && this.page() > 1`), le signal de page recule automatiquement d'une unité avant de déclencher `this.load()`.
+  - **Gestion des cas d'erreur métier :**
+    - Statut `404` (piste inexistante ou déjà supprimée dans un autre onglet) : affichage d'un message d'alerte spécifique et rechargement de la liste pour resynchroniser la vue avec la base MongoDB.
+    - Statut `403` (accès interdit / piste n'appartenant pas à l'utilisateur) : notification de refus d'autorisation claire.
+- **Validation :** Exécution de `npm run build` confirmant une compilation complète sans aucune erreur ni avertissement.
+
+### Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+La suppression d'une ressource est une opération importante qui nécessite à la fois une validation côté client avec une confirmation, une prévention du double-clic et des notifications. L'interface Angular ne suffisent pas à sécuriser une suppression : c'est le backend qui valide le JWT et vérifie que l'id du propriétaire est correct avant de supprimer le fichier. Ce prompt permet de couvrir tous les cas.
+
+## 2. Mission 6 : Progression de l'upload
+
+**Prompt :**
+> « Pour la Mission 6 du TP3, fais évoluer le formulaire d'upload pour suivre et afficher sa progression en temps réel. Il faudra gérer l'absence d'upload, l'upload en cours avec un calcul du pourcentage dynamique allant de 0% à 100%, la réussite avec une notification, la réinitialisation du formulaire et le rechargement de la première page, l'échec avec un message d'erreur et une remise à zéro, pendant le transfert il faudra désactiver tous les champs input titre, input fichier, bouton envoyer pour interdire toute seconde action simultanée et veiller à ce qu'aucune donnée sensible ne soit affichée dans la console ou le template. »
+
+### Rapport de ce que l'agent a fait et analysé
+
+- **Évolution de `TrackService` (`shared/services/track.service.ts`) :**
+  - Implémentation de la méthode `uploadWithProgress(file: File, title: string) : Observable<HttpEvent<Track>>`.
+  - Configuration spécifique d'Angular `HttpClient` :
+    ```typescript
+    return this.http.post<Track>('/api/tracks', body, {
+      reportProgress: true,
+      observe: 'events',
+    });
+    ```
+    - `reportProgress: true` : demande à XMLHttpRequest/Fetch d'émettre les événements de transfert réseau intermédiaires.
+    - `observe: 'events'` : configure l'Observable pour qu'il émette tous les événements (`HttpEvent`) et non uniquement le corps JSON final (`HttpResponse`).
+- **Gestion des 4 états réactifs dans `TracksPageComponent` :**
+  - `uploadStatus = signal<'idle' | 'uploading' | 'success' | 'error'>('idle')` : machine à états explicite.
+  - `uploadProgress = signal<number>(0)` : pourcentage entier calculé en temps réel.
+  - `uploading = signal<boolean>(false)` : verrouillage asynchrone.
+- **Traitement du flux événementiel dans la méthode `upload()` :**
+  - **Événement `HttpEventType.UploadProgress` :** calcul immédiat du pourcentage via `Math.round((100 * event.loaded) / event.total)` et mise à jour du signal `uploadProgress`.
+  - **Événement `HttpEventType.Response` (Succès) :**
+    - Récupération de l'objet `Track` créé.
+    - Passage de `uploadStatus` à `'success'`, notification par `MatSnackBar` (*« Piste « ... » importée avec succès ! »*).
+    - Nettoyage du formulaire (titre et fichier remis à blanc) et rechargement de la page 1 de la bibliothèque.
+  - **Gestion de l'Échec (`error`) :**
+    - Capture de l'erreur réseau ou HTTP (ex: 400 fichier invalide ou > 25 Mo).
+    - Passage de `uploadStatus` à `'error'`, réinitialisation de `uploadProgress` à 0% et affichage d'un toast d'erreur persistant.
+- **Sécurisation de l'interface :**
+  - Désactivation conjointe du bouton d'envoi (`[disabled]="!file || uploading()"`), du champ titre (`[disabled]="uploading()"`) et du sélecteur de fichier (`[disabled]="uploading()"`), empêchant tout double-envoi ou altération en cours de route.
+  - Aucun log de token ou mot de passe dans les consoles.
+- **Validation du build :** Compilation `npm run build` validée avec 0 erreur.
+
+
+À l'inverse, un upload avec progression nécessite de suivre les paquets d'octets envoyés au serveur au fur et à mesure :
+1. **Émissions multiples dans le temps :** L'Observable émet plusieurs objets `HttpEvent` successifs (type `HttpEventType.Sent`, puis une suite de `HttpEventType.UploadProgress`, et enfin `HttpEventType.Response`).
+2. **Nécessité de filtrer les événements :** Le composant ne peut pas supposer que chaque valeur reçue est le corps JSON de la réponse. Il doit inspecter `event.type` avec une structure conditionnelle (`if / switch`) pour distinguer les notifications de progression de la réponse finale.
+3. **Calcul d'avancement :** La progression n'est calculable que si le serveur ou le navigateur fournit la taille totale (`event.total`), nécessitant la formule `(event.loaded / event.total) * 100`.
+
+### Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+Pour des fichiers annant jusqu'à 25 mo, un envoi HTTP standard donne l'impression que l'application est figée tant que le serveur n'a pas répondu. Or, en utilisant `reportProgress: true` et `observe: 'events'`, l'application informe l'utilisateur en temps réel de l'état d'avancement. Ce qui, cependant, nécessite de bien filtrer les étapes de chargement et la réponse finale. Par ailleurs, le verrouillage de tous les champs du formulaire permet qu'aucune modification ni de deuxième clic ne perturber l'envoi en cours.
+
+### Requête HTTP standard
+Dans une requête HTTP cela n'émet qu'une seule valeur unique correspondant à la réponse une fois le téléchargement terminé, puis il se complète. Alors que pour l'upload avec progression émet un flux d'événements intermédiaires au fil du transfert avant de de délivrer la réponse du serveur ce qui oblige le composant à filtrer le type d'événement reçu au lieu de traiter directement le résultat.
+
+---
+
+## 3. Mission 7 : Tests automatisés frontend
+
+**Prompt :**
+> « Pour la Mission 7 du TP3, on doit mettre en place une suite de tests unitaires automatisés pour le frontend sans dépendre du serveur ni de MongoDB. Configure l'environnement de test Angular/Vitest en installant ce qu'il faut et en ajustant angular.json si nécessaire. Réalises au moins trois tests unitaires concernants et vérifie qu'il émet un POST avec le bon JSON et stocke le token JWT et l'utilisateur dans les Signals. Vérifier aussi qu'il transmet page et limit dans la requête GET et teste également la suppression avec DELETE. Il faudra aussi vérifier l'injection de l'en-tête se fait correctement. Pour finir vérifie que tous les tests passent.
+
+### Rapport de ce que l'agent a fait et analysé
+
+- **Configuration de l'environnement de tests frontend (`angular.json`, `package.json`) :**
+  - Ajout de la dépendance de développement `jsdom` (nécessaire pour simuler le DOM dans l'exécuteur Vitest sous Node.js).
+  - Ajout des configurations cibles `"development"` et `"production"` sous l'architecte `build` dans `angular.json` pour permettre au builder `@angular/build:unit-test` de résoudre correctement les options de compilation.
+- **Rédaction des tests unitaires (`.spec.ts`) :**
+  1. **`src/app/shared/services/auth.service.spec.ts` :**
+     - Test de `login()` : simule un appel avec identifiants, intercepte l'appel sortant via `httpMock.expectOne('/api/auth/login')`.
+     - Vérifie la méthode HTTP (`POST`), le corps de la requête (`{ email, password }`), et s'assure qu'après `req.flush(mockResponse)`, le signal `token()`, le signal `currentUser()` et la clé `gpc_token` du `localStorage` sont mis à jour de manière synchrone.
+  2. **`src/app/shared/services/track.service.spec.ts` :**
+     - Test de `list(page, limit)` : vérifie la méthode (`GET`), l'URL `/api/tracks`, et la présence exacte des paramètres d'URL `page=2` et `limit=5`.
+     - Test de `delete(id)` : vérifie que l'URL appelée est bien `/api/tracks/track-123` avec la méthode `DELETE` et simule une réponse `204 No Content`.
+  3. **`src/app/shared/interceptors/auth.interceptor.spec.ts` :**
+     - Test avec token : configure `AuthService.token.set('my-secret-jwt-token')`, émet une requête HTTP et valide que l'intercepteur a cloné la requête en y ajoutant `Authorization: Bearer my-secret-jwt-token`.
+     - Test sans token : configure `AuthService.token.set(null)`, émet une requête d'authentification et valide que l'en-tête `Authorization` est totalement absent.
+- **Exécution et validation des tests :**
+  - Commande : `npm test` (`ng test --watch=false`).
+  - **Résultat :** 3 fichiers de test exécutés, **5 tests passés avec succès (100% de réussite)**.
+
+```text
+ ✓ src/app/shared/services/track.service.spec.ts (2 tests)
+ ✓ src/app/shared/services/auth.service.spec.ts (1 test)
+ ✓ src/app/shared/interceptors/auth.interceptor.spec.ts (2 tests)
+ Test Files  3 passed (3)
+      Tests  5 passed (5)
+```
+
+### Pourquoi les tests frontend doivent s'exécuter avec des réponses HTTP simulées
+1. **Indépendance et reproductibilité (isolation) :** Si les tests dépendaient d'un serveur réel ou d'une base MongoDB, un problème réseau, une base vide ou une latence serveur ferait échouer les tests du frontend alors même que le code TypeScript est parfaitement valide. Les tests simulés via `HttpTestingController` s'exécutent de façon déterministe et instantanée (quelques millisecondes).
+2. **Vérification du contrat sans effets de bord :** Le mock permet d'inspecter précisément ce que le code Angular envoie sur le réseau (URL, verbe HTTP, headers `Authorization`, corps JSON) sans modifier de vraies données en base ni envoyer de vrais fichiers audio sur le disque.
+3. **Simulation aisée des cas d'erreur :** Simuler des erreurs réseau, des codes 401, 403, 404 ou 500 se fait en une ligne (`req.flush(null, { status: 401, statusText: 'Unauthorized' })`), ce qui serait beaucoup plus complexe et lourd à orchestrer avec une vraie base de données.
+
+### Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+Les tests automatisés sont nécessaires pour sécuriser les évolutions futures d'une application : ils permettent de vérifier en quelques secondes qu'aucune régression n'a été introduite sur l'authentification ou la gestion des requêtes. De plus on valide que le frontend respecte le contrat HTTP de API_CONTRACT.md` en vérifiant les routes, les verbes et les en-têtes sans dépendre d'un environnement externe comme MongoDB.
+
+### Tests frontend
+La commande `npm test` dans le frontend lance Vitest. Comme le montre la capture d'écran, les 3 suites de tests unitaires isolés s'exécutent avec succès.
+- `auth.service.spec.ts` (1 test) : valide l'émission de la requête `POST /api/auth/login` avec les bons identifiants et la mise à jour des Signals et du `localStorage`.
+- `track.service.spec.ts` (2 tests) : confirme la transmission des paramètres page et limit sur `GET /api/tracks` ainsi que l'appel de `DELETE /api/tracks/:id`.
+- `auth.interceptor.spec.ts` (2 tests) : valide l'ajout automatique de l'en-tête `Authorization: Bearer <token>` sur les requêtes ainsi qu'elle n'apparaît pas sur les routes publiques.
+Au total, les 5 tests sont passés avec 100% de réussite sans aucune dépendance envers le serveur réel ou MongoDB.
+![alt text](image-29.png)
+
+### Tests backend
+La commande `npm test` dans le backend active le test de Node.js. Comme visible ci-dessous, les 2 tests automatisés passent avec succès.
+- Le premier test vérifie la disponibilité de l'endpoint `GET /api/health` qui répond en `200 OK` de manière complètement autonome, sans avoir besoin de se connecter à MongoDB Atlas.
+- Le deuxième test valide l'intégrité des schémas Mongoose User et Track, la conversion automatique de l'email en minuscules et la conformité de `ref: "User"` sur le champ `ownerId`.
+![alt text](image-28.png)

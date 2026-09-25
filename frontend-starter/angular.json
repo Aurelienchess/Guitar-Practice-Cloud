@@ -20,13 +20,28 @@
                         "styles": [
                             "src/styles.css"
                         ]
-                    }
+                    },
+                    "configurations": {
+                        "production": {
+                            "optimization": true,
+                            "outputHashing": "all"
+                        },
+                        "development": {
+                            "optimization": false,
+                            "extractLicenses": false,
+                            "sourceMap": true
+                        }
+                    },
+                    "defaultConfiguration": "production"
                 },
                 "serve": {
                     "builder": "@angular/build:dev-server",
                     "configurations": {
                         "development": {
-                            "buildTarget": "gpc:build"
+                            "buildTarget": "gpc:build:development"
+                        },
+                        "production": {
+                            "buildTarget": "gpc:build:production"
                         }
                     },
                     "defaultConfiguration": "development"

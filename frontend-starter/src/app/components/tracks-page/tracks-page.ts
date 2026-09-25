@@ -2,6 +2,7 @@ import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { HttpEventType } from '@angular/common/http';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Track } from '../../shared/models/track.model';
 import { TrackService } from '../../shared/services/track.service';
 
@@ -16,13 +17,14 @@ const ALLOWED_MIME_TYPES = new Set([
 ]);
 
 @Component({
-  imports: [ReactiveFormsModule, MatPaginatorModule],
+  imports: [ReactiveFormsModule, MatPaginatorModule, MatSnackBarModule],
   templateUrl: './tracks-page.html',
   styleUrl: './tracks-page.css',
 })
 export class TracksPageComponent {
   private readonly service = inject(TrackService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly snackBar = inject(MatSnackBar);
 
   readonly tracks = signal<Track[]>([]);
   readonly page = signal(1);
@@ -180,6 +182,8 @@ export class TracksPageComponent {
   }
 
   deleteTrack(track: Track): void {
+    if (this.deletingId()) return; // Empêcher les doubles clics
+
     const ok = window.confirm(`Voulez-vous vraiment supprimer le morceau « ${track.title} » ?`);
     if (!ok) return;
 
@@ -190,7 +194,10 @@ export class TracksPageComponent {
     this.service.delete(track.id).subscribe({
       next: () => {
         this.deletingId.set(null);
-        this.deleteSuccess.set(`Piste « ${track.title} » supprimée.`);
+        const msg = `Piste « ${track.title} » supprimée avec succès.`;
+        this.deleteSuccess.set(msg);
+        this.snackBar.open(msg, 'Fermer', { duration: 4000, horizontalPosition: 'end' });
+
         if (this.currentTrack()?.id === track.id) {
           this.currentTrack.set(null);
           const previousUrl = this.audioUrl();
@@ -203,9 +210,25 @@ export class TracksPageComponent {
         }
         this.load();
       },
-      error: (err: { error?: { message?: string } }) => {
+      error: (err: { status?: number; error?: { message?: string } }) => {
         this.deletingId.set(null);
-        this.error.set(err.error?.message ?? 'Échec de la suppression de la piste.');
+        let errorMsg = err.error?.message ?? 'Échec de la suppression de la piste.';
+
+        // Gestion du cas où la piste n'existe plus ou n'appartient pas à l'utilisateur (404/403)
+        if (err.status === 404) {
+          errorMsg = `La piste « ${track.title} » n'existe plus ou a déjà été supprimée.`;
+          // Rafraîchir quand même pour synchroniser la liste locale avec le serveur
+          this.load();
+        } else if (err.status === 403) {
+          errorMsg = `Action refusée : vous n'êtes pas autorisé à supprimer « ${track.title} ».`;
+        }
+
+        this.error.set(errorMsg);
+        this.snackBar.open(errorMsg, 'Fermer', {
+          duration: 5000,
+          horizontalPosition: 'end',
+          panelClass: ['error-snackbar'],
+        });
       },
     });
   }
