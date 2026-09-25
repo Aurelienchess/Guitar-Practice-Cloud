@@ -774,3 +774,57 @@ La commande `npm test` dans le backend active le test de Node.js. Comme visible 
 - Le premier test vérifie la disponibilité de l'endpoint `GET /api/health` qui répond en `200 OK` de manière complètement autonome, sans avoir besoin de se connecter à MongoDB Atlas.
 - Le deuxième test valide l'intégrité des schémas Mongoose User et Track, la conversion automatique de l'email en minuscules et la conformité de `ref: "User"` sur le champ `ownerId`.
 ![alt text](image-28.png)
+
+### Extension backend facultative
+
+**Prompt :**
+> « À partir de `backend/test/api.test.js`, rajoute des tests de contrat ou de sécurité pour une réponse 401 sans JWT, une réponse 401 avec JWT invalide, un upload sans fichier, un type MIME refusé, une pagination avec page et limit et l'accès interdit à la piste d'un autre utilisateur. Pas besoin de modifier les routes du backend, il faut juste vérifier que le contrat reste respecté. Tu testera si tout marche et si npm run build ne renvoie pas d'erreur »
+
+### Rapport de ce que l'agent a fait et analysé
+
+- **Enrichissement de `backend/test/api.test.js` sans altérer les routes existantes :**
+  - **Sécurité JWT :**
+    - Ajout du test vérifiant que l'absence de header `Authorization` sur une route protégée (`GET /api/tracks`) renvoie immédiatement un statut HTTP `401 Unauthorized` avec le message `Authentification requise`.
+    - Ajout du test vérifiant qu'un token falsifié ou corrompu (`Bearer token-invalide-ou-corrompu`) est rejeté par `jwt.verify` avec une réponse `401 Unauthorized` (`Jeton invalide ou expiré`).
+  - **Validation de contrat multipart / upload :**
+    - Ajout du test simulant une requête `POST /api/tracks` sans champ `audio` : vérification que l'API renvoie un statut `400 Bad Request` avec le message `Fichier audio requis`.
+    - Ajout du test injectant un fichier texte `text/plain` : vérification que le middleware `fileFilter` de Multer intercepte le fichier non autorisé et renvoie une erreur `400 Bad Request` avec `Format audio non accepté`.
+  - **Contrat de pagination :**
+    - Test unitaire vérifiant l'application stricte des bornes min (`1`) et max (`50`) ainsi que le fallback sur les valeurs par défaut en cas de paramètres invalides.
+  - **Étanchéité des données et droits d'accès :**
+    - Ajout du test simulant deux utilisateurs distincts : un utilisateur générant une requête avec son propre token pour accéder à la piste audio (`GET /api/tracks/:id/audio`) créée par un autre utilisateur.
+    - Vérification que la clause MongoDB `ownerId: req.auth.sub` bloque l'accès et répond en `404 Piste inconnue` sans divulguer le fichier physique.
+- **Vérifications et validations :**
+  - Exécution de `npm test` dans `backend` : **8 tests sur 8 réussis avec 100% de succès**.
+  - Exécution de `npm run build` dans `frontend-starter` : bundle Angular généré sans aucune erreur ni avertissement.
+
+### Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+L'ajout de ces tests permet de s'assurer que le backend applique les règles de sécurité définies dans API_CONTRACT.md sans avoir à dépendre d'une interface graphique. Ces tests garantissent que les jetons JWT sont tout le temps vérifiés, que les uploads de fichiers non autorisés sont bloqués et qu'un utilisateur ne peut pas écouter ou accéder aux morceaux d'un autre utilisateur.
+
+### Résultats des tests
+L'exécution de la suite de tests étendue dans le backend valide l'ensemble des 8 tests automatisés sans aucun échec (`pass 8`, `fail 0`). Les traces d'erreurs visibles dans les logs sont attendues car elles correspondent aux tests d'intrusion et de validation de contrats qui envoient volontairement des requêtes mal formées ou interdites pour vérifier que l'API réagit avec les bons codes de statut HTTP : `401`, `400` et `404` dans notre cas.
+![alt text](image-30.png)
+Les messages captures d'écrans des différents tests ont était commenté à l'aide de l'IA.
+#### erreur 401 sans JWT
+Le test émet une requête `GET /api/tracks` sans en-tête `Authorization`. Le middleware `auth` intercepte immédiatement la requête, logue `Authorization absente pour GET /api/tracks` et renvoie une réponse HTTP `401 Unauthorized` avec le message `Authentification requise`.
+![alt text](image-31.png)
+
+#### erreur 401 avec un JWT invalide
+Une requête est envoyée avec un token malformé (`Bearer token-invalide-ou-corrompu`). La bibliothèque `jsonwebtoken` lève une exception `JsonWebTokenError: jwt malformed`, qui est capturée par le middleware `auth` pour répondre en `401 Unauthorized` avec le message `Jeton invalide ou expiré`.
+![alt text](image-32.png)
+
+#### erreur 400 lors d'un upload sans fichier
+Une requête `POST /api/tracks` multipart est soumise avec un titre mais sans aucun fichier audio dans le champ `audio`. Le contrôleur détecte l'absence de `req.file` (`Upload sans fichier`), bloque la création en base MongoDB et répond par un statut `400 Bad Request` avec `Fichier audio requis`.
+![alt text](image-33.png)
+
+#### erreur 400 si le type MIME audio est refusé
+Une tentative d'upload est effectuée avec un fichier non autorisé (`text/plain`). Le middleware `fileFilter` de Multer rejette le fichier avant toute écriture sur le disque (`Type refusé : text/plain`), déclenchant l'erreur `Format audio non accepté` interceptée par le gestionnaire central pour renvoyer un statut `400 Bad Request`.
+![alt text](image-34.png)
+
+#### Paramètres page et limit
+Ce test unitaire valide la fonction de pagination : les paramètres valides (`page=2`, `limit=10`) sont correctement transmis, et les paramètres anormaux ou hors bornes (`page=-5`, `limit=999`) sont automatiquement ramenés aux limites du contrat (`page=1`, `limit=50`).
+![alt text](image-35.png)
+
+#### Erreur 404 si lecture audio d'un morceau inexistant ou non possédé
+Le test vérifie l'étanchéité des ressources entre utilisateurs : lorsqu'un utilisateur authentifié tente de lire un morceau qui ne lui appartient pas (ou inexistant) via `GET /api/tracks/:id/audio`, la clause de recherche `{ _id: req.params.id, ownerId: req.auth.sub }` ne trouve aucun document correspondant. Le serveur bloque l'accès et répond avec une erreur `404 Piste inconnue` sans divulguer le fichier audio.
+![alt text](image-36.png)
