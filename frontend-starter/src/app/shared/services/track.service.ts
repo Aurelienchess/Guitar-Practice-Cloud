@@ -9,10 +9,12 @@ import { Track } from '../models/track.model';
 export class TrackService {
   private readonly http = inject(HttpClient);
 
-  list(page = 1, limit = 5) {
-    return this.http.get<Page<Track>>('/api/tracks', {
-      params: { page, limit },
-    });
+  list(page = 1, limit = 5, search = '') {
+    const params: Record<string, string | number> = { page, limit };
+    if (search && search.trim()) {
+      params['search'] = search.trim();
+    }
+    return this.http.get<Page<Track>>('/api/tracks', { params });
   }
 
   upload(file: File, title: string) {

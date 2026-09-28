@@ -74,8 +74,21 @@
           </div>
 
           <div class="track-actions">
-            <button type="button" class="btn-play" (click)="play(track)" [attr.aria-label]="'Lire ' + track.title">▶</button>
-            <button type="button" class="btn-delete" (click)="deleteTrack(track)" [disabled]="deletingId() === track.id" aria-label="Supprimer la piste">
+            <button
+              type="button"
+              class="btn-play"
+              (click)="togglePlay(track)"
+              [attr.aria-label]="(currentTrack()?.id === track.id && isPlaying() ? 'Mettre en pause ' : 'Lire ') + track.title"
+            >
+              @if (currentTrack()?.id === track.id && isPlaying()) { ⏸ } @else { ▶ }
+            </button>
+            <button
+              type="button"
+              class="btn-delete"
+              (click)="openDeleteModal(track)"
+              [disabled]="deletingId() === track.id"
+              aria-label="Supprimer la piste"
+            >
               @if (deletingId() === track.id) { … } @else { 🗑 }
             </button>
           </div>
@@ -103,9 +116,37 @@
           @if (currentTrack(); as track) {
             <p>Lecture en cours : <b>{{ track.title }}</b> {{ track.artist ? 'par ' + track.artist : '' }}</p>
           }
-          <audio [src]="audioUrl()" controls autoplay></audio>
+          <audio
+            [src]="audioUrl()"
+            controls
+            autoplay
+            (play)="onAudioPlay($event)"
+            (pause)="onAudioPause()"
+            (ended)="onAudioEnded()"
+          ></audio>
         </div>
       }
     </article>
   </div>
+
+  @if (trackToDelete(); as track) {
+    <div class="modal-backdrop" (click)="cancelDeleteModal()">
+      <div class="modal-dialog" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title">
+        <h3 id="delete-dialog-title">Confirmer la suppression</h3>
+        <p>Voulez-vous vraiment supprimer le morceau <strong>« {{ track.title }} »</strong> ?</p>
+        <p class="modal-warning">Cette action est irréversible et supprimera définitivement le fichier audio de votre cloud.</p>
+        <div class="modal-actions">
+          <button type="button" class="btn-cancel" (click)="cancelDeleteModal()">Annuler</button>
+          <button
+            type="button"
+            class="btn-confirm-delete"
+            (click)="executeDelete()"
+            [disabled]="deletingId() === track.id"
+          >
+            @if (deletingId() === track.id) { Suppression en cours… } @else { Supprimer définitivement }
+          </button>
+        </div>
+      </div>
+    </div>
+  }
 </section>

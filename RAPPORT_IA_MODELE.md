@@ -839,3 +839,80 @@ Ici on remarque qu'il y a un upload puis une suppression et qu'à chaque fois, l
 ![alt text](image-39.png)
 #### Suppression (Delete en 204)
 ![alt text](image-40.png)
+
+# Améliorations de l'application
+
+**Prompt :**
+> « J'aimerais qu'on perfectionne l'application maintenant.
+> Je pense notament à rajouter des hovers et des on clicks pour les boutons (attention ils ne doivent pas avoir exactement la même couleur que le fond et le texte pour des questions d'accessibilités, même au hover ou au on click). Je pense surtout aux boutons du header "Backing tracks" et "Profil" et du "choisir un fichier".
+> Pour ce qui est du header, je te laisse séparer les 2 textes "Guitar Practice Cloud" et "Le cloud qui manque à votre ampli".
+> Pour le bouton lecture "▶" des cards des morceaux je te laisse lui rajouter un état "⏸" quand le morceau est en lecture puis le repasser en "▶" quand on met en pause la musique ou qu'elle est fini. De plus la boîte "Items per page" a un déroulant de fond transparent alors que ce serait bien qu'il soit juste blanc pour qu'on voit mieux les 5, 10 et 20 sans voir à travers. Ensuite pour la confirmation de suppression gère la en pop-up plutôt qu'en alert.
+> Ensuite, rajoute dans le header le nom de la personne connectée entre le profil et la déconnexion.
+> Et en dernier j'ai remarqué que la pagination de 5 éléments par pages n'est pas parfaite quand on établis un filtre. Exemple :
+> J'ai sélectionné 5 éléments par pages et j'ai en tout 7 éléments donc pour le moment tout va bien vu qu'il y en a 5 affiché sur la première et 2 sur la 2e. Mais si maintenant j'applique un filtre qui doit afficher 3 éléments de la première page et un de la 2e, il va m'afficher les 3 sur la première pages puis le 4e sur la 2e page car il est ici quand tous les morceaux sont affichés or ce n'est pas correct car il devrait mettre les 4 morceaux sur la première page vu qu'il y a 5 éléments par page affichés même si initialement le 4e morceaux trouvé par le filtre se trouve sur la 2e page quand aucun filtre n'est aplliqué. Il faut donc aussi corriger ça pour que les items par pages soient aussi fonctionnels quand un filtre est appliqué. »
+
+## Rapport de ce que l'agent a fait et modifié
+
+### 1. Pagination dynamique couplée à la recherche côté serveur
+- **Diagnostic de l'anomalie :** Auparavant, la pagination était effectuée par la base de données (5 éléments renvoyés), puis le filtre Angular filtrait localement sur ces 5 seuls éléments. Si 3 morceaux de la page 1 et 1 morceau de la page 2 correspondaient au filtre, la page 1 n'affichait que 3 morceaux et l'utilisateur devait changer de page pour voir le 4ᵉ.
+- **Backend (`backend/src/app.js`) :**
+  - Prise en charge du paramètre de recherche `req.query.search` (ou `q`) dans `GET /api/tracks`.
+  - Intégration d'un critère `$match` avec une expression régulière insensible à la casse sur les champs `title`, `artist`, `album` et `originalName`.
+  - Le plugin `aggregatePaginate` filtre d'abord l'ensemble des pistes de l'utilisateur, puis applique la pagination sur la sélection filtrée. Le `totalDocs` et le nombre de pages retournés correspondent exactement au nombre de résultats trouvés.
+- **Frontend Service (`track.service.ts`) :**
+  - Mise à jour de la signature : `list(page = 1, limit = 5, search = '')`. Le paramètre `search` est transmis dans les paramètres HTTP GET s'il n'est pas vide.
+- **Frontend Component (`tracks-page.ts`) :**
+  - Écoute du champ de recherche avec temporisation (`debounceTime(300)` et `distinctUntilChanged()`).
+  - Réinitialisation automatique à la page 1 lors de chaque saisie, puis appel de `load()` avec le critère de recherche.
+  - Les 4 morceaux filtrés de l'exemple sont désormais tous rassemblés sur la première page, et le paginator affiche fidèlement `1 – 4 of 4`.
+
+### 2. Bouton de lecture avec état interactif Play / Pause (« ▶ » et « ⏸ »)
+- **Frontend (`tracks-page.ts`, `tracks-page.html`, `tracks-page.css`) :**
+  - Ajout d'un signal `isPlaying = signal(false)`.
+  - Récupération de l'élément audio via `viewChild<ElementRef<HTMLAudioElement>>('audioPlayer')`.
+  - Liaison des événements standards de la balise `<audio>` : `(play)="onAudioPlay()"`, `(pause)="onAudioPause()"`, `(ended)="onAudioEnded()"`.
+  - Si le morceau en cours de lecture est actif et joue, l'icône sur sa carte devient « ⏸ ». Un clic sur ce bouton met en pause la musique.
+  - Dès que la musique est terminée, mise en pause ou qu'un autre morceau est sélectionné, l'icône repasse automatiquement en « ▶ ».
+  - Les attributs d'accessibilité (`aria-label`) s'adaptent dynamiquement (« Lire » ou « Mettre en pause » + titre du morceau).
+
+### 3. Pop-up de confirmation personnalisée pour la suppression
+- **Frontend (`tracks-page.ts`, `tracks-page.html`, `tracks-page.css`) :**
+  - Remplacement de la boîte de dialogue bloquante native `window.confirm()` par une véritable fenêtre modale accessible (`role="dialog"`, `aria-modal="true"`).
+  - Gestion de l'état via un signal réactif `trackToDelete = signal<Track | null>(null)`.
+  - Affichage d'un arrière-plan sombre estompé (`backdrop-filter: blur(2px)`), rappel du titre du morceau ciblé, message d'avertissement explicite sur le caractère irréversible de l'action, bouton « Annuler » et bouton « Supprimer définitivement » avec indicateur d'état pendant la suppression.
+
+### 4. Refonte du header : hiérarchie textuelle et affichage de l'utilisateur
+- **Frontend (`app.html`, `app.css`, `app.ts`) :**
+  - Séparation nette du titre principal `Guitar Practice Cloud` et du sous-titre `Le cloud qui manque à votre ampli` grâce à une structure flexbox en colonne dédiée (`.brand`), avec différenciation des tailles et graisses de police.
+  - Insertion du nom de l'utilisateur connecté sous la forme `👤 [Nom]` entre le lien « Profil » et le bouton « Déconnexion ».
+  - Dans `AppComponent.ngOnInit()`, si un token JWT est présent en `localStorage` (par exemple après un rafraîchissement F5 de la page), un appel automatique à `auth.profile()` restaure les informations de l'utilisateur connecté sans nécessiter de reconnexion.
+
+### 5. Accessibilité, contrastes et retours visuels (Hover & On Click)
+- **Conformité aux normes d'accessibilité (WCAG) :** Les états de survol (`:hover`) et d'enfoncement (`:active` / on click) utilisent des variations de teintes et de luminosité qui préservent un contraste de texte élevé (ratio supérieur aux 4.5:1 recommandés) sans jamais se confondre avec la couleur de fond de la barre d'en-tête (`#123d32`) ou du conteneur.
+- **Boutons du header (« Backing tracks », « Profil », « Déconnexion ») :**
+  - Au repos : fond subtil `#1b4e41`, bordure fine claire et texte blanc `#ffffff`.
+  - Au survol (`:hover`) : éclaircissement contrôlé `#2a7260`, bordure `#72cfb7`, ombre portée discrète.
+  - Au clic (`:active`) : enfoncement visuel via `transform: scale(0.97)` et assombrissement `#0e3027`.
+  - Bouton Déconnexion : teintes rouges distinctes (`#b83a3a` au repos, `#d14747` au survol, `#8a2525` au clic).
+- **Bouton « Choisir un fichier » :**
+  - Stylisation sur-mesure du pseudo-élément `input[type="file"]::file-selector-button` avec une apparence moderne, bordure arrondie, curseur pointeur, survol vert émeraude (`#269578`) et effet d'enfoncement (`#124f40`, `scale(0.97)`).
+- **Boutons de la page (Envoyer, Actualiser, Play, Corbeille) :**
+  - Tous pourvus d'effets de survol, de transitions fluides et de retours tactiles au clic.
+
+### 6. Fond opaque pour le menu déroulant « Items per page » de `mat-paginator`
+- **Global Stylesheet (`frontend-starter/src/styles.css`) :**
+  - Surcharge des classes du conteneur d'overlay Angular Material MDC (`.cdk-overlay-pane .mat-mdc-select-panel`).
+  - Application d'un fond blanc pur `#ffffff` 100% opaque avec ombre portée (`box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22)`), supprimant toute transparence indésirable lors du choix de la taille de page (5, 10, 20).
+  - Personnalisation des options (`.mat-mdc-option`) avec mise en valeur de l'élément sélectionné et du survol.
+
+---
+
+## Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+
+Pour ce qui est du problème de pagination, celle-ci filtrait uniquement les données de la page courante en frontend ce qui crée un problème au niveau de la logique car l'utilisateur ne voit qu'une des résultats. Or maintenant que le critère de recherche dans a été déplacé dans la requête MongoDB, la base de données filtre l'ensemble de données avant de découper la page. Ainsi, si 4 morceaux correspondent aux critères de recherche, ils sont immédiatement regroupés sur la page 1 pour remplir les 5 emplacements demandés.
+Dans l'exemple ci-dessous on voit que le morceau "freestyle" qui se trouve en page 2 apparaît bien en première page quand le filtre le trouve avec trois autres résultats (soit quatre résultats à afficher en première page car la limite est de cinq) ce qui n'était pas le cas avant.
+<video controls width="100%" title="Démonstration du filtre et de la pagination">
+  <source src="./20260928-0715-44.7602074.mp4" type="video/mp4">
+</video>
+Enfin j'ai voulu personaliser légèrement mon application au niveau esthétique comme par exemple afficher la confirmation de suppression dans une pop-up et plus dans une alerte. Des petits ajouts ont aussi été réalisés comme l'alternance entre « ▶ » et « ⏸ » pour une meilleure expérience ou encore le profil affiché dans le header pour se rappeler de l'utilisateur connecté.
+

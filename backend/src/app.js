@@ -275,12 +275,26 @@ export function createApp() {
       const page = Math.max(1, Number(req.query.page) || 1);
       const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 5));
       const ownerId = new mongoose.Types.ObjectId(req.auth.sub);
+      const search = String(req.query.search || req.query.q || "").trim();
 
-      console.log(`[tracks] Lecture aggregatePaginate page=${page}, limit=${limit}, user=${req.auth.sub}`);
+      console.log(`[tracks] Lecture aggregatePaginate page=${page}, limit=${limit}, search="${search}", user=${req.auth.sub}`);
+
+      // Construction du filtre de recherche textuelle insensible à la casse
+      const matchCriteria = { ownerId };
+      if (search) {
+        const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const searchRegex = new RegExp(escapedSearch, "i");
+        matchCriteria.$or = [
+          { title: searchRegex },
+          { artist: searchRegex },
+          { album: searchRegex },
+          { originalName: searchRegex },
+        ];
+      }
 
       // Pipeline d'agrégation MongoDB ciblant les pistes de l'utilisateur
       const aggregate = Track.aggregate([
-        { $match: { ownerId } },
+        { $match: matchCriteria },
         { $sort: { createdAt: -1 } },
         { $project: { storedName: 0 } },
       ]);

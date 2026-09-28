@@ -6,11 +6,15 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; }
-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 5vw; color: white; background: #123d32; }
-header small { opacity: 0.7; }
-nav { display: flex; gap: 1rem; }
-a { color: #1d755e; }
-header a { color: white; }
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 5vw;
+  color: white;
+  background: #123d32;
+}
+
 main { max-width: 1050px; margin: 2rem auto; padding: 0 1rem; }
 .hero { margin-bottom: 1rem; padding: 2rem; color: white; background: linear-gradient(120deg, #123d32, #276c57); border-radius: 20px; }
 .eyebrow { letter-spacing: 0.15em; font-size: 0.75rem; }
@@ -19,17 +23,121 @@ main { max-width: 1050px; margin: 2rem auto; padding: 0 1rem; }
 .card form, label { display: grid; gap: 0.4rem; }
 label { margin: 0.8rem 0; }
 input { padding: 0.75rem; border: 1px solid #b8cbc5; border-radius: 8px; }
-button { padding: 0.7rem 1rem; color: white; background: #1d755e; border: 0; border-radius: 8px; cursor: pointer; }
-button:disabled { opacity: 0.45; }
+input:focus-visible {
+  outline: 2px solid #1d755e;
+  outline-offset: 1px;
+}
+
+button {
+  padding: 0.7rem 1rem;
+  color: white;
+  background: #1d755e;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.18s ease, transform 0.1s ease, box-shadow 0.18s ease;
+}
+
+button:hover:not(:disabled) {
+  background-color: #269578;
+  box-shadow: 0 3px 8px rgba(29, 117, 94, 0.25);
+}
+
+button:active:not(:disabled) {
+  background-color: #124f40;
+  transform: scale(0.98);
+}
+
+button:disabled { opacity: 0.45; cursor: not-allowed; }
 .row, .track, .pager { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .track { padding: 0.8rem 0; border-bottom: 1px solid #e1ebe7; }
 .track small { display: block; color: #61756f; }
 .pager { margin: 1rem 0; }
-audio { width: 100%; }
+audio { width: 100%; border-radius: 8px; }
 .error { color: #a33; }
+
+/* Déroulant de pagination opaque blanc lisible (évite la transparence sur 5, 10, 20) */
+.cdk-overlay-pane .mat-mdc-select-panel,
+.mat-mdc-select-panel,
+div.mat-mdc-select-panel {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  opacity: 1 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22) !important;
+  border: 1px solid #c7d8d2 !important;
+}
+
+.mat-mdc-option {
+  background-color: #ffffff !important;
+  color: #17312a !important;
+  font-weight: 500 !important;
+}
+
+.mat-mdc-option:hover,
+.mat-mdc-option.mat-mdc-option-active {
+  background-color: #e5f2ed !important;
+  color: #123d32 !important;
+}
+
+.mat-mdc-option.mdc-list-item--selected:not(.mat-mdc-option-multiple) {
+  background-color: #d1ece3 !important;
+  color: #123d32 !important;
+  font-weight: 600 !important;
+}
+
+/* Boutons de navigation MatPaginator (flèches première, précédente, suivante, dernière) */
+.mat-mdc-paginator button.mat-mdc-icon-button {
+  background: transparent !important;
+  color: #17312a !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  border: none !important;
+  border-radius: 50% !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background-color 0.15s ease !important;
+}
+
+.mat-mdc-paginator button.mat-mdc-icon-button svg,
+.mat-mdc-paginator button.mat-mdc-icon-button .mat-mdc-paginator-icon {
+  fill: #17312a !important;
+  color: #17312a !important;
+}
+
+/* Hover seulement sur les boutons actifs (pas désactivés) */
+.mat-mdc-paginator button.mat-mdc-icon-button:not([disabled]):not(.mat-mdc-button-disabled):hover {
+  background-color: rgba(29, 117, 94, 0.12) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* Boutons désactivés : clairement grisés, AUCUN hover, curseur interdit */
+.mat-mdc-paginator button.mat-mdc-icon-button[disabled],
+.mat-mdc-paginator button.mat-mdc-icon-button.mat-mdc-button-disabled,
+.mat-mdc-paginator button.mat-mdc-icon-button[aria-disabled="true"] {
+  background: transparent !important;
+  color: #b8cbc5 !important;
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.mat-mdc-paginator button.mat-mdc-icon-button[disabled] svg,
+.mat-mdc-paginator button.mat-mdc-icon-button.mat-mdc-button-disabled svg,
+.mat-mdc-paginator button.mat-mdc-icon-button[aria-disabled="true"] svg,
+.mat-mdc-paginator button.mat-mdc-icon-button[disabled] .mat-mdc-paginator-icon,
+.mat-mdc-paginator button.mat-mdc-icon-button.mat-mdc-button-disabled .mat-mdc-paginator-icon,
+.mat-mdc-paginator button.mat-mdc-icon-button[aria-disabled="true"] .mat-mdc-paginator-icon {
+  fill: #b8cbc5 !important;
+  color: #b8cbc5 !important;
+}
 
 @media (max-width: 720px) {
   header, .grid { display: block; }
-  nav { margin-top: 1rem; }
   .grid .card { margin-bottom: 1rem; }
 }

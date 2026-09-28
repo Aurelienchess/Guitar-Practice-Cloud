@@ -27,7 +27,10 @@ export class LoginPageComponent {
   });
 
   submit(): void {
-    if (this.form.invalid) return;
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
     this.error.set('');
     this.loading.set(true);
     const { email, password } = this.form.getRawValue();

@@ -38,7 +38,7 @@
       }
     }
 
-    <button type="submit" [disabled]="form.invalid || loading()">
+    <button type="submit" [disabled]="loading()">
       @if (loading()) { Inscription… } @else { Créer mon compte }
     </button>
   </form>

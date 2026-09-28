@@ -26,7 +26,7 @@
       }
     }
 
-    <button type="submit" [disabled]="form.invalid || loading()">
+    <button type="submit" [disabled]="loading()">
       @if (loading()) { Connexion… } @else { Se connecter }
     </button>
   </form>
