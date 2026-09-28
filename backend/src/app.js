@@ -122,6 +122,82 @@ const upload = multer({
 });
 
 /**
+ * Middleware de limitation de débit (Rate Limiting) pour protéger contre les attaques par force brute (brute-force).
+ * Bloque un client (identifié par son adresse IP) après un nombre maximal de requêtes dans une fenêtre temporelle donnée.
+ *
+ * @param {Object} options
+ * @param {number} [options.maxAttempts=3] - Nombre maximum de requêtes autorisées dans la fenêtre (par défaut 3 essais)
+ * @param {number} [options.windowMs=10000] - Durée de la fenêtre de blocage en millisecondes (par défaut 10 000 ms = 10s)
+ * @returns {Function} Express middleware
+ */
+export function createRateLimiter({ maxAttempts = 3, windowMs = 10000, blockDurationMs = 10000 } = {}) {
+  const attempts = new Map();
+
+  // Nettoyage régulier des entrées expirées pour éviter l'accumulation mémoire
+  const cleanupTimer = setInterval(() => {
+    const now = Date.now();
+    for (const [ip, data] of attempts.entries()) {
+      if (now - data.lastAttemptAt > Math.max(windowMs, blockDurationMs)) {
+        attempts.delete(ip);
+      }
+    }
+  }, 30000);
+  cleanupTimer.unref?.();
+
+  return (req, res, next) => {
+    // Identification du client via son adresse IP
+    const clientIp = req.ip || req.socket?.remoteAddress || "127.0.0.1";
+    const now = Date.now();
+
+    const record = attempts.get(clientIp);
+
+    // 1. Si le client est actuellement dans sa période de blocage
+    if (record?.blockedUntil && now < record.blockedUntil) {
+      const remainingSec = Math.max(1, Math.ceil((record.blockedUntil - now) / 1000));
+      console.warn(
+        `[security] IP ${clientIp} bloquée (tentative pendant blocage). Reste ${remainingSec}s`,
+      );
+      res.setHeader("Retry-After", remainingSec);
+      return res.status(429).json({
+        message: `Trop de tentatives de connexion. Veuillez réessayer dans ${remainingSec} seconde(s).`,
+        retryAfter: remainingSec,
+      });
+    }
+
+    // 2. Si le client n'était pas bloqué ou que son blocage est expiré
+    if (record) {
+      // Si la fenêtre de 10s est passée depuis la première tentative (sans blocage actif)
+      if (now - record.firstAttemptAt > windowMs) {
+        attempts.set(clientIp, { count: 1, firstAttemptAt: now, lastAttemptAt: now, blockedUntil: null });
+        return next();
+      }
+
+      record.count += 1;
+      record.lastAttemptAt = now;
+
+      // Dès qu'on dépasse le nombre maximal d'essais autorisés (ex: 3), on enclenche un blocage de 10s pleines
+      if (record.count > maxAttempts) {
+        record.blockedUntil = now + blockDurationMs;
+        const remainingSec = Math.ceil(blockDurationMs / 1000);
+        console.warn(
+          `[security] Rate limit dépassé pour l'IP ${clientIp} (${record.count} tentatives). Bloqué pendant ${remainingSec}s`,
+        );
+
+        res.setHeader("Retry-After", remainingSec);
+        return res.status(429).json({
+          message: `Trop de tentatives de connexion. Veuillez réessayer dans ${remainingSec} seconde(s).`,
+          retryAfter: remainingSec,
+        });
+      }
+    } else {
+      attempts.set(clientIp, { count: 1, firstAttemptAt: now, lastAttemptAt: now, blockedUntil: null });
+    }
+
+    next();
+  };
+}
+
+/**
  * Construit l'application Express sans ouvrir de port.
  * Cette séparation permet au serveur réel et aux tests de créer la même
  * application. Le port est ouvert uniquement dans server.js.
@@ -192,9 +268,12 @@ export function createApp() {
     }
   });
 
+  // Protection contre le brute-force : max 3 essais en 10 secondes par client
+  const loginLimiter = createRateLimiter({ maxAttempts: 3, windowMs: 10000 });
+
   /** Vérifie les identifiants et ouvre une session JWT. Les identifiants sont envoyés dans le corps de la 
    * requête par un HTTP POST. */
-  app.post("/api/auth/login", async (req, res, next) => {
+  app.post("/api/auth/login", loginLimiter, async (req, res, next) => {
     try {
         // req.body est déjà un objet JavaScript grâce au middleware express.json() placé plus haut.
         // il contient les champs email et password envoyés par le frontend Angular.

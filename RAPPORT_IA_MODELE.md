@@ -912,7 +912,69 @@ Ici on remarque qu'il y a un upload puis une suppression et qu'à chaque fois, l
 Pour ce qui est du problème de pagination, celle-ci filtrait uniquement les données de la page courante en frontend ce qui crée un problème au niveau de la logique car l'utilisateur ne voit qu'une des résultats. Or maintenant que le critère de recherche dans a été déplacé dans la requête MongoDB, la base de données filtre l'ensemble de données avant de découper la page. Ainsi, si 4 morceaux correspondent aux critères de recherche, ils sont immédiatement regroupés sur la page 1 pour remplir les 5 emplacements demandés.
 Dans l'exemple ci-dessous on voit que le morceau "freestyle" qui se trouve en page 2 apparaît bien en première page quand le filtre le trouve avec trois autres résultats (soit quatre résultats à afficher en première page car la limite est de cinq) ce qui n'était pas le cas avant.
 <video controls width="100%" title="Démonstration du filtre et de la pagination">
-  <source src="./20260928-0715-44.7602074.mp4" type="video/mp4">
-</video>
+  <source src="./20260928-0715-44.7602074.mp4" type="video/mp4"></video>
+    Si la vidéo ne marche pas il est possible qu'il faille aller la lire dans le projet :
+  "./20260928-0715-44.7602074.mp4"
+
 Enfin j'ai voulu personaliser légèrement mon application au niveau esthétique comme par exemple afficher la confirmation de suppression dans une pop-up et plus dans une alerte. Des petits ajouts ont aussi été réalisés comme l'alternance entre « ▶ » et « ⏸ » pour une meilleure expérience ou encore le profil affiché dans le header pour se rappeler de l'utilisateur connecté.
 
+**Prompt :**
+> « J'aimerais maintenant crypter mon mot de passe qui s'affiche en clair dans réseau/fetch (network/payload) quand on inspecte la page (code source) Il faudrait donc crypter le mot de passe avant qu'il soit envoyé. »
+
+## Rapport de ce que l'agent a fait et analysé
+
+L'agent a procédé à une analyse architecturale et sécuritaire approfondie de la demande :
+
+1. **Origine du constat dans les DevTools (Network / Payload) :**
+   - Lorsque l'on ouvre l'inspecteur du navigateur (F12) dans l'onglet **Réseau (Network)**, le panneau affiche les données de la requête **au niveau applicatif local**, c'est-à-dire au moment où le code JavaScript d'Angular transmet le corps JSON `{ email, password }` à `HttpClient`.
+   - L'inspecteur se situant directement dans le moteur du navigateur sur la machine cliente de l'utilisateur, il a nécessairement accès au texte saisi en clair avant son émission physique.
+
+2. **La protection réelle sur le réseau : HTTPS / TLS :**
+   - Dans une application web déployée en production, la confidentialité du transit ne repose pas sur une transformation artisanale en JavaScript, mais sur le protocole **HTTPS (TLS 1.3)**.
+   - Dès que la requête quitte le navigateur, l'intégralité du message HTTP (l'URL après le domaine, les en-têtes d'authentification, les cookies et l'ensemble du payload JSON contenant le mot de passe) est chiffrée de bout en bout par la couche de transport TLS.
+   - Un observateur sur le réseau (écoute Wi-Fi publique, fournisseur d'accès, routeurs intermédiaires) ne voit que des paquets chiffrés totalement indéchiffrables.
+
+3. **Le piège de sécurité du pré-hachage ou chiffrement côté client (Client-side Hashing) :**
+   - **L'attaque par rejeu (*Pass-the-Hash*) :** Si le frontend hache le mot de passe (par exemple `SHA-256(password)`) avant l'envoi, pour le serveur, ce hash devient la véritable clé secrète d'authentification. Tout attaquant interceptant ce hash pourrait le rejouer directement pour se connecter sans jamais avoir besoin de connaître le mot de passe d'origine.
+   - **Neutralisation du salage dynamique (Salt) :** Le backend utilise `bcrypt` avec 10 rounds de hachage et un sel aléatoire propre à chaque utilisateur (`bcrypt.hash(password, 10)`). C'est ce sel serveur qui protège efficacement contre les attaques par tables arc-en-ciel (*rainbow tables*). Hacher côté client sans sel dynamique géré par le serveur n'apporte aucun gain de sécurité.
+   - **Respect du contrat d'API et des tests :** Le contrat HTTP (`API_CONTRACT.md`) et les tests unitaires (`auth.service.spec.ts`) imposent que le service d'authentification transmette `{ email, password }`. Modifier le mot de passe en amont briserait la spécification de l'API REST et invaliderait la suite de tests automatisés.
+
+---
+
+## Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+
+En inspectant l'onglet Réseau du naviguateur lors de la soumission du formulaire de connexion, voir le mot de passe en clair dans le payload est une faille de sécurité en raison d'utilisateurs malveillant povant récupérer les mot de passes à l'aide d'un sniffer. Il faut donc chiffrer ou hacher le mot de passe en JavaScript avant de l'envoyer sur le réseau.
+
+Grâce à cette analyse, j'ai compris la différence entre la vue locale du navigateur et la sécurité en transit sur le réseau. L'outil de développement du navigateur s'exécute sur ma propre machine et voit nécessairement les données que je viens de saisir dans le formulaire avant qu'elles ne soient transmises à la couche réseau. La vraie protection contre les attaques de type « écoute réseau » est assurée par le protocole HTTPS (TLS), qui chiffre l'intégralité du flux HTTP entre le client et le serveur. Hacher le mot de passe côté client en JavaScript est donc une fausse bonne idée car pour le serveur, le hash deviendrait le nouveau mot de passe. La bonne pratique universelle du web (recommandée par l'OWASP) consiste donc à transmettre le mot de passe via HTTPS, puis à laisser le serveur le hacher avec bcrypt avant stockage sécurisé dans MongoDB.
+
+**Prompt :**
+> « Maintenant j'aimerais commencer à renforcer la sécurité de mon application. D'abord, j'aimerais bloquer les requêtes de connexion exessives (par exemple si un utilisateur essaye de se connecter beaucoup de fois en peu de temps au bout de 3 essais ça le bloque pendant 10 secondes).»
+
+## Rapport de ce que l'agent a fait et analysé
+
+1. **Création d'un middleware de limitation de débit (*Rate Limiting*) dans `backend/src/app.js` :**
+   - Implémentation de la fonction `createRateLimiter({ maxAttempts = 3, windowMs = 10000 })` sans dépendance superflue.
+   - Suivi par adresse IP du client (`req.ip` ou `socket.remoteAddress`) dans une structure en mémoire (`Map`).
+   - Comptabilisation des requêtes sur une fenêtre glissante de 10 secondes :
+     - Les 3 premières tentatives sont traitées normalement par le contrôleur d'authentification.
+     - Dès la 4ᵉ tentative dans l'intervalle de 10 secondes, la requête est immédiatement bloquée avant tout traitement Mongoose / bcrypt.
+     - Le serveur répond avec le statut standard **HTTP `429 Too Many Requests`**.
+     - Ajout de l'en-tête de réponse standard `Retry-After` indiquant le nombre de secondes restantes avant déblocage.
+     - Renvoi d'un message d'erreur clair : `Trop de tentatives de connexion. Veuillez réessayer dans X seconde(s).`
+     - Nettoyage automatique des entrées expirées en arrière-plan pour éviter toute fuite de mémoire.
+
+2. **Application à la route sensible `POST /api/auth/login` :**
+   - Le middleware `loginLimiter` est positionné en première ligne sur la route de connexion.
+   - En cas d'erreur `429`, le frontend Angular existant capture directement le message renvoyé et l'affiche en rouge sans nécessiter de modification d'interface.
+
+3. **Validation automatisée par les tests de contrat (`backend/test/api.test.js`) :**
+   - Ajout d'un test simulant 4 requêtes de connexion successives avec de mauvais identifiants.
+   - Validation que les requêtes 1, 2 et 3 reçoivent un statut `401 Unauthorized` et que la 4ᵉ requête est interceptée avec un statut `429 Too Many Requests` et l'en-tête `Retry-After`.
+   - Résultat de la suite de tests : **9 tests sur 9 validés avec succès (100%)**.
+
+---
+
+## Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+
+L'objectif de ce prompt est de renforcer la protection contre les attaques par force brute. En effet, sans restriction de fréquence, un script automatisé peut tester des milliers de combinaisons email/mot de passe à la seconde jusqu'à trouver la bonne. Or en limitant le client à 3 essais maximum toutes les 10 secondes, une attaque par dictionnaire devient trop lente. De même, la protection des ressources du processeur est mise en place avec la vérification d'un mot de passe qui fait désormais appel à `bcrypt.compare`, qui s'avère lourd en calcul CPU afin de ralentir les calculs cryptographiques. Ce qui signifie  que si un pirate envoie des centaines de requêtes de connexion simultanées, il peut saturer le processeur du serveur Node.js et faire planter l'API. L'attaque est donc interceptée sans solliciter `bcrypt`. Enfin, l'utilisation du code HTTP combiné au header `Retry-After` est la norme du web pour signaler une limitation de débit. Ce qui veut dire que si un utilisateur commet une faute de frappe il sera bloqué seulemment 10 secondes, alors qu'un robot sera paralysé.
+![alt text](image-41.png)

@@ -174,3 +174,34 @@ test("contrat sécurité : lecture audio d'un morceau inexistant ou non posséd�
     assert.equal(data.message, "Piste inconnue");
   }
 });
+
+test("sécurité : limitation de débit (429 Too Many Requests) après 3 tentatives de connexion", async () => {
+  const credentials = {
+    email: "attacker@test.com",
+    password: "wrong-password",
+  };
+
+  const postLogin = () =>
+    fetch(`${base}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(credentials),
+    });
+
+  // Essais 1, 2 et 3 : autorisés (répondent 401 car mauvais mot de passe)
+  const r1 = await postLogin();
+  assert.equal(r1.status, 401);
+
+  const r2 = await postLogin();
+  assert.equal(r2.status, 401);
+
+  const r3 = await postLogin();
+  assert.equal(r3.status, 401);
+
+  // Essai 4 dans la même fenêtre : bloqué par le rate limiter avec HTTP 429
+  const r4 = await postLogin();
+  assert.equal(r4.status, 429);
+  const data4 = await r4.json();
+  assert.ok(data4.message.includes("Trop de tentatives de connexion"));
+  assert.ok(r4.headers.get("retry-after"));
+});
