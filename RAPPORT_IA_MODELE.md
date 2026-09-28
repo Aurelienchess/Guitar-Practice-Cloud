@@ -1,3 +1,9 @@
+Dans ce rapport se trouve tout mon cheminement pour la réalisation du tp1, 2 et 3 en ajoutant des améliorations à la fin. Il suit globalement la structure suivante pour chaque  :
+Prompt (que je donne à l'ia)
+Ce que l'ia a vu et analysé (généré par l'ia aussi)
+Ce que j'en ai compris, pourquoi j'ai fait ça et les preuves que ça marche (partie que j'ai écrite à la main sans ia sauf si je le précise)
+
+
 # Rapport d'usage de l'IA - TP1
 
 Pour chaque mission, détailler et fournir des explications concernant : objectif; prompt principal; plan proposé par l'agent; vérifications réalisées par le binôme; erreurs ou propositions rejetées; fichiers effectivement modifiés; preuve de fonctionnement; ce que chaque membre sait maintenant expliquer sans l'agent.
@@ -912,8 +918,7 @@ Ici on remarque qu'il y a un upload puis une suppression et qu'à chaque fois, l
 Pour ce qui est du problème de pagination, celle-ci filtrait uniquement les données de la page courante en frontend ce qui crée un problème au niveau de la logique car l'utilisateur ne voit qu'une des résultats. Or maintenant que le critère de recherche dans a été déplacé dans la requête MongoDB, la base de données filtre l'ensemble de données avant de découper la page. Ainsi, si 4 morceaux correspondent aux critères de recherche, ils sont immédiatement regroupés sur la page 1 pour remplir les 5 emplacements demandés.
 Dans l'exemple ci-dessous on voit que le morceau "freestyle" qui se trouve en page 2 apparaît bien en première page quand le filtre le trouve avec trois autres résultats (soit quatre résultats à afficher en première page car la limite est de cinq) ce qui n'était pas le cas avant.
 <video controls width="100%" title="Démonstration du filtre et de la pagination">
-  <source src="./20260928-0715-44.7602074.mp4" type="video/mp4"></video>
-    Si la vidéo ne marche pas il est possible qu'il faille aller la lire dans le projet :
+  <source src="./20260928-0715-44.7602074.mp4" type="video/mp4"></video> Si la vidéo ne marche pas il est possible qu'il faille aller la lire dans le projet :
   "./20260928-0715-44.7602074.mp4"
 
 Enfin j'ai voulu personaliser légèrement mon application au niveau esthétique comme par exemple afficher la confirmation de suppression dans une pop-up et plus dans une alerte. Des petits ajouts ont aussi été réalisés comme l'alternance entre « ▶ » et « ⏸ » pour une meilleure expérience ou encore le profil affiché dans le header pour se rappeler de l'utilisateur connecté.
@@ -978,3 +983,110 @@ Grâce à cette analyse, j'ai compris la différence entre la vue locale du navi
 
 L'objectif de ce prompt est de renforcer la protection contre les attaques par force brute. En effet, sans restriction de fréquence, un script automatisé peut tester des milliers de combinaisons email/mot de passe à la seconde jusqu'à trouver la bonne. Or en limitant le client à 3 essais maximum toutes les 10 secondes, une attaque par dictionnaire devient trop lente. De même, la protection des ressources du processeur est mise en place avec la vérification d'un mot de passe qui fait désormais appel à `bcrypt.compare`, qui s'avère lourd en calcul CPU afin de ralentir les calculs cryptographiques. Ce qui signifie  que si un pirate envoie des centaines de requêtes de connexion simultanées, il peut saturer le processeur du serveur Node.js et faire planter l'API. L'attaque est donc interceptée sans solliciter `bcrypt`. Enfin, l'utilisation du code HTTP combiné au header `Retry-After` est la norme du web pour signaler une limitation de débit. Ce qui veut dire que si un utilisateur commet une faute de frappe il sera bloqué seulemment 10 secondes, alors qu'un robot sera paralysé.
 ![alt text](image-41.png)
+
+**Prompt :**
+> « Maintenant j'aimerais corriger les deux problèmes critiques qu'il reste à corriger dans les fichiers analyse.md du début. J'aimerais donc que côté backend le serveur refuse de démarrer si le JWT_SECRET est absent ou trop faible. Et côté frontend, j'aimerais que le jeton JWT soit stocké uniquement en signal angulat avec un renouvellement par cookie HTTP-Only »
+
+## Rapport de ce que l'agent a fait et analysé
+
+1. **Sécurisation critique Backend : Validation Fail-Fast de `JWT_SECRET` (`backend/src/app.js`) :**
+   - Élimination du repli silencieux vulnérable (`|| "tp1-development-secret"`).
+   - Contrôle strict au démarrage : si `JWT_SECRET` est absent dans `backend/.env`, ou s'il comporte moins de 16 caractères, ou s'il correspond au secret de démonstration par défaut, le serveur lève immédiatement une exception fatale et refuse formellement de démarrer (*Fail-Fast*).
+   - Cela empêche tout risque de déploiement d'une API vulnérable où un attaquant pourrait forger des jetons administratifs avec un secret public.
+
+2. **Mise en place de sessions sécurisées par Cookie HTTP-Only (`backend/src/app.js`) :**
+   - Lors de la connexion (`POST /api/auth/login`) et de l'inscription (`POST /api/auth/register`), Express émet désormais un cookie sécurisé :
+     `Set-Cookie: gpc_session=<token>; HttpOnly; SameSite=Lax; Path=/; Max-Age=7j`.
+   - L'attribut **`HttpOnly`** garantit que le cookie est **totalement inaccessible depuis le code JavaScript (`document.cookie`)**, ce qui neutralise le vol de session en cas d'attaque par injection XSS.
+   - Ajout d'une fonction utilitaire native `parseCookies(req)` sans dépendance npm externe.
+   - Création de la route `POST /api/auth/refresh` : lit le cookie `gpc_session`, vérifie sa signature et renvoie un jeton d'accès tout neuf pour alimenter l'état mémoire du client.
+   - Création de la route `POST /api/auth/logout` : révoque et supprime le cookie de session (`res.clearCookie`).
+
+3. **Sécurisation critique Frontend : Stockage 100% en Signal Angular (`frontend-starter/...`) :**
+   - Suppression intégrale de l'utilisation de `localStorage` (`getItem`, `setItem`, `removeItem`) dans `AuthService`.
+   - Le jeton d'accès est stocké **exclusivement en mémoire vive** dans un Signal réactif : `readonly token = signal<string | null>(null)`.
+   - Ajout de la méthode `AuthService.refresh()` appelant `/api/auth/refresh` avec l'option `{ withCredentials: true }` pour transmettre le cookie.
+   - Mise à jour de `AuthService.logout()` pour réinitialiser les signaux en mémoire et demander la purge du cookie côté serveur.
+
+4. **Résolution de la persistance au rechargement (F5) via un `authGuard` asynchrone :**
+   - Comme la mémoire vive se vide lors d'un rechargement F5, le garde synchrone initial redirigeait prématurément vers `/login`.
+   - Transformation de `authGuard` en garde asynchrone réactif :
+     - Si `auth.token()` est déjà en mémoire, l'accès est accordé instantanément (`true`).
+     - Si le Signal est vide (cas du F5), le garde déclenche `auth.refresh()` et **attend la réponse du cookie HTTP-Only** : si la session est valide, le token est restauré et le garde autorise la navigation (`map(() => true)`), maintenant l'utilisateur sur `/tracks`. Si le cookie est absent ou expiré, il redirige vers `/login`.
+   - Sécurisation de l'`authInterceptor` : transmission systématique de `withCredentials: true` sur `/api`, restriction du header `Authorization` aux seules routes de l'API (anti-fuite vers des tiers), et exclusion des routes `/api/auth/*` de la déconnexion automatique en cas de 401.
+
+5. **Validation automatisée par les suites de tests :**
+   - **Backend : 10 tests sur 10 réussis (100%)**, incluant le test unitaire du refresh par cookie HTTP-Only et de logout.
+   - **Frontend : 7 tests sur 7 réussis (100%)**, validant que `localStorage.getItem('gpc_token')` reste strictement `null` et que le Signal mémoire est correctement alimenté.
+
+---
+
+## Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+Ce prompt était nécessaire pour finir de corriger les problèmes critiques de sécurités listés au début du TP dans les fichiers analyse.md qui ne le sont pas encore. A savoir côté backend renforcer la sécurité par rapport au JWT par défaut puis sécuriser côté frontend son stockage contre les attasues XSS.
+### Côté backend
+La faille de sécurité côté backend est corrigée car on peut voir que sur cette capture d'écran, si le JWT est trop court, le serveur refuse de se lancer. 
+![alt text](image-42.png)
+### Côté frontend
+Sur cette capture d'écran on peut voir qu'il n'y a plus "gpc_token" écrite dans le Local storage
+![alt text](image-43.png)
+Sur cette capture d'écran on peut voir qu'il y a le cookie nommé gpc_session et que la colonne HttpOnly est cochée ce qui signifie que la protection contre les attaques XSS est bien préssente car aucun jeton ne peut être volé.
+![alt text](image-44.png)
+Lors des tests je me suis rendu compte qu'en rafraîchissait la page, cela renvoyait à la connexion plutôt que de rester sur la liste des morceaux en raison de la réinitialisation de la mémoire vive JavaScript au rechargement. En effet comme le token n'est plus persisté dans le `localStorage` mais uniquement conservé dans un Signal Angular en mémoire, `auth.token()` vaut temporairement `null` pendant les premières millisecondes. Le garde de routage (`authGuard`), qui s'exécute, constate `auth.token() === null` et redirige vers la page de connexion avant même que la requête réseau de rafraîchissement n'ait pu contacter le serveur. J'ai donc demandé à l'ia qu'au lieu de refuser tout de suite, le garde appelle `auth.refresh()` en cas de rafraîchissement de la page et attende la réponse du cookie HTTP-Only pour restaurer le jeton dans le Signal. Ainsi, si le cookie est valide, le garde autorise la route et l'utilisateur peut rester directement sur la page des morceaux. En revanche, si aucun cookie n'existe, il est redirigé vers la page de connexion.
+### Tests
+On peut voir que les tests backend et frontend mis en place sont tous validés
+#### Tests backend
+![alt text](image-45.png)
+#### Tests frontend
+![alt text](image-46.png)
+
+**Prompt :**
+> « Pour finir addoptons des bonnes pratiques. Actuellement les traces des requêtes sont enregistrées dans le terminal backend. J'aimerais que l'on créé des fichiers logs qui se suppriment tout seul au bout de 6 mois en récupérant la date, l'heure et l'addresse ip de l'utilisateur qui a fait la requête. »
+
+## Rapport de ce que l'agent a fait et analysé
+
+1. **Création d'un module de journalisation dédié (`backend/src/logger.js`) :**
+   - Mise en place d'un répertoire dédié aux journaux d'accès : `backend/data/logs/` (initialisé de façon récursive et sécurisée au démarrage avec `fs.mkdirSync`).
+   - Ajout d'un fichier `.gitkeep` et configuration du `.gitignore` pour éviter d'archiver des fichiers de logs réels sur Git tout en préservant l'arborescence.
+   - Implémentation de la fonction `logHttpRequest(req, res, durationMs)` :
+     - Horodatage précis : capture de la date (`YYYY-MM-DD`) et de l'heure (`HH:mm:ss`).
+     - Extraction fiable de l'adresse IP de l'appelant (`req.headers["x-forwarded-for"]`, `req.socket.remoteAddress` ou `req.ip`), compatible en environnement local direct comme derrière un reverse-proxy.
+     - Structuration de l'entrée de log sous la forme :
+       `[YYYY-MM-DD HH:mm:ss] IP=<ip> METHOD=<methode> URL=<route> STATUS=<code_http> DURATION=<duree>ms`
+     - Écriture asynchrone non-bloquante (`fs.appendFile`) dans un fichier journalier nommé `access-YYYY-MM-DD.log` afin de ne jamais dégrader la latence ni bloquer la boucle d'événements de l'API.
+
+2. **Mécanisme de purge automatique après 6 mois (`cleanOldLogs`) :**
+   - Implémentation de la fonction `cleanOldLogs(logsDir, maxAgeDays = 180)` :
+     - Parcourt l'ensemble des fichiers `.log` présents dans le dossier `data/logs/`.
+     - Calcule l'ancienneté de chaque fichier via `stats.mtimeMs`.
+     - Supprime définitivement (`fsPromises.unlink`) tout fichier ayant plus de 180 jours (6 mois).
+   - Exécution automatique de la purge :
+     - Au démarrage immédiat du serveur backend.
+     - De manière récurrente toutes les 24 heures via un `setInterval` configuré avec `.unref()`, assurant un fonctionnement autonome en continu sans empêcher l'arrêt propre de Node.js lors de l'exécution des tests.
+
+3. **Intégration transparente dans le pipeline Express (`backend/src/app.js`) :**
+   - Le middleware de journalisation global écoute l'événement `res.on("finish")`.
+   - Il conserve l'affichage instantané dans le terminal pour le confort des développeurs (`console.log`) tout en transmettant simultanément les métriques complètes à `logHttpRequest`.
+
+4. **Automatisation et validation par les tests (`backend/test/api.test.js`) :**
+   - Ajout de 2 nouveaux tests unitaires automatisés :
+     - Test de journalisation : vérifie qu'une requête HTTP génère bien un fichier log horodaté au jour le jour contenant l'adresse IP, la méthode, la route et le code HTTP.
+     - Test de rétention : crée un fichier log factice daté de plus de 180 jours (200 jours via `fs.utimesSync`), déclenche `cleanOldLogs` et vérifie son effacement automatique du système de fichiers.
+   - **Validation totale : 12 tests sur 12 passés avec succès (100%)**.
+
+---
+
+## Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+
+Pour finir la gestion des logs d'un serveur est une bonne pratique qui permet d'avoir un suivi technique des actions utilisateur tout en étant en conformité avec le RGPD.
+
+Persister les requêtes dans des fichiers journaux horodatés plutôt que dans le simple terminal permet de conserver un historique nécessaire aux audits post-incident et à la détection d'intrusions, même après un redémarrage du serveur. En y consignant l'adresse IP et l'heure tout en excluant les données sensibles du corps de requête, on garantit une traçabilité technique conforme au principe de minimisation. Enfin, la purge automatique après 6 mois répond aux exigences légales du RGPD (l'adresse IP étant une donnée personnelle) tout en empêchant la saturation du disque dur.
+
+La capture montre que les actions utilisateurs sont bien tracés en temps réel dans le fichier access-aaaa-mm-dd.log du répertoire /backen/data/logs. L'addresse IP est 1 car elle est en IPV6 et que le test est local.
+Dans notre exemple, à 11h53 l'utilisateur se connecte, upload un fichier puis le supprime instantanément, mettant à jour la pagination à chaque étape.
+![alt text](image-48.png)
+
+Pour terminer voici un aperçu en vidéo de la version finale de mon application.
+Avec dans l'ordre : le succès des tests, le lancement du backend et du frontend, la requête de connexion, la gestion par le cookie HTTP-Only, les requêtes de pagination, la requête de filtre, la requête de lecture audio par blob, la requête d'upload, la requête de suppression, la requête de changement de nom dans le profil, la requête de déconnexion et l'affichage des logs.
+<video controls width="100%" title="Démonstration de l'application">
+<source src="demo-application-compresse.mp4" type="video/mp4"></video>
+Si la vidéo ne marche pas il est possible qu'il faille aller la lire dans le projet : "./demo-application-compresse.mp4"

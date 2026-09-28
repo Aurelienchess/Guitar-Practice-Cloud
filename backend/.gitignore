@@ -1,4 +1,7 @@
 node_modules/
 data/uploads/*
 !data/uploads/.gitkeep
+data/logs/*
+!data/logs/.gitkeep
 .env
+

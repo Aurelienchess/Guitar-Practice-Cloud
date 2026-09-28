@@ -10,6 +10,7 @@ import mongoose from "mongoose";
 import { parseFile } from "music-metadata";
 import { User } from "./models/User.js";
 import { Track } from "./models/Track.js";
+import { logHttpRequest } from "./logger.js";
 
 // Les fichiers audio restent sur le disque du serveur dans ce TP.
 // MongoDB ne conserve que leurs métadonnées : titre, nom, taille, etc.
@@ -25,8 +26,44 @@ try {
   throw error;
 }
 
-// Ce secret reste côté serveur. Il ne doit jamais être copié dans Angular.
-const SECRET = process.env.JWT_SECRET || "tp1-development-secret";
+// Validation Fail-Fast de la clé secrète JWT :
+// Le serveur refuse formellement de démarrer si JWT_SECRET est absent ou trop faible.
+if (!process.env.JWT_SECRET) {
+  const error = new Error(
+    "Configuration critique manquante : JWT_SECRET doit être défini dans backend/.env",
+  );
+  console.error("[startup] Échec de sécurité critique", error);
+  throw error;
+}
+
+if (
+  process.env.JWT_SECRET.length < 16 ||
+  process.env.JWT_SECRET === "tp1-development-secret"
+) {
+  const error = new Error(
+    "Configuration critique invalide : JWT_SECRET doit contenir au moins 16 caractères et différer de la clé par défaut 'tp1-development-secret'",
+  );
+  console.error("[startup] Échec de sécurité critique", error);
+  throw error;
+}
+
+// Ce secret reste strictement côté serveur. Il ne doit jamais être copié dans Angular.
+const SECRET = process.env.JWT_SECRET;
+
+/** Analyse les cookies transmis dans l'en-tête Cookie de la requête HTTP */
+function parseCookies(req) {
+  const list = {};
+  const cookieHeader = req.headers?.cookie;
+  if (!cookieHeader) return list;
+  cookieHeader.split(";").forEach((cookie) => {
+    const parts = cookie.split("=");
+    const name = parts[0]?.trim();
+    if (!name) return;
+    const value = parts.slice(1).join("=").trim();
+    list[name] = decodeURIComponent(value);
+  });
+  return list;
+}
 
 // La taille maximale d'un fichier audio est de 25 Mo. Les fichiers plus gros
 // sont refusés par Multer avant d'être écrits sur le disque.
@@ -207,15 +244,19 @@ export function createApp() {
 
   // Journaliser la fin de chaque requête permet de suivre méthode, URL,
   // statut et durée sans exposer les corps contenant des mots de passe.
+  // Les requêtes sont consignées dans le terminal et dans un fichier log journalier (rétention 6 mois).
   app.use((req, res, next) => {
     const startedAt = Date.now();
     res.on("finish", () => {
+      const durationMs = Date.now() - startedAt;
       console.log(
-        `[http] ${req.method} ${req.originalUrl} -> ${res.statusCode} (${Date.now() - startedAt} ms)`,
+        `[http] ${req.method} ${req.originalUrl} -> ${res.statusCode} (${durationMs} ms)`,
       );
+      logHttpRequest(req, res, durationMs);
     });
     next();
   });
+
 
   // CORS est nécessaire pour que le frontend Angular puisse appeler l'API.
   // C'est-à-dire que le navigateur autorise les requêtes cross-origin depuis localhost:4200.
@@ -261,7 +302,18 @@ export function createApp() {
       // par le hook pre('validate') défini dans le schéma Mongoose.
       const user = await User.create({ name, email, password });
       console.log(`[auth] Utilisateur créé : ${user.id}`);
-      res.status(201).json({ token: token(user), user: user.toPublic() });
+      const jwtToken = token(user);
+
+      // Émission du cookie de session sécurisé HTTP-Only (inaccessible par JavaScript/XSS)
+      res.cookie("gpc_session", jwtToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: "/",
+      });
+
+      res.status(201).json({ token: jwtToken, user: user.toPublic() });
     } catch (error) {
       console.error("[auth] Erreur pendant l'inscription", error);
       next(error);
@@ -293,11 +345,65 @@ export function createApp() {
       }
 
       console.log(`[auth] Connexion réussie : ${user.id}`);
-      res.json({ token: token(user), user: user.toPublic() });
+      const jwtToken = token(user);
+
+      // Émission du cookie de session sécurisé HTTP-Only (inaccessible par JavaScript/XSS)
+      res.cookie("gpc_session", jwtToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: "/",
+      });
+
+      res.json({ token: jwtToken, user: user.toPublic() });
     } catch (error) {
       console.error("[auth] Erreur pendant la connexion", error);
       next(error);
     }
+  });
+
+  /**
+   * Restaure et renouvelle le jeton d'accès en mémoire à partir du cookie HTTP-Only sécurisé.
+   * Permet à une SPA d'éviter de stocker le token dans le localStorage (protection anti-XSS).
+   */
+  app.post("/api/auth/refresh", async (req, res) => {
+    try {
+      const cookies = parseCookies(req);
+      const sessionToken = cookies.gpc_session;
+
+      if (!sessionToken) {
+        return res.status(401).json({ message: "Aucune session active" });
+      }
+
+      const decoded = jwt.verify(sessionToken, SECRET);
+      const user = await User.findById(decoded.sub);
+
+      if (!user) {
+        return res.status(401).json({ message: "Utilisateur inconnu" });
+      }
+
+      const newToken = token(user);
+      res.cookie("gpc_session", newToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: "/",
+      });
+
+      console.log(`[auth] Session renouvelée via cookie pour ${user.id}`);
+      res.json({ token: newToken, user: user.toPublic() });
+    } catch {
+      res.clearCookie("gpc_session", { httpOnly: true, path: "/" });
+      return res.status(401).json({ message: "Session expirée ou invalide" });
+    }
+  });
+
+  /** Déconnexion : purge le cookie de session HTTP-Only côté serveur */
+  app.post("/api/auth/logout", (req, res) => {
+    res.clearCookie("gpc_session", { httpOnly: true, path: "/" });
+    res.json({ message: "Déconnexion réussie" });
   });
 
   /** Retourne le profil public de l'utilisateur identifié par le JWT. 

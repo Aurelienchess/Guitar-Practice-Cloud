@@ -244,7 +244,11 @@ export class TracksPageComponent implements AfterViewInit {
         this.trackToDelete.set(null);
         const msg = `Piste « ${track.title} » supprimée avec succès.`;
         this.deleteSuccess.set(msg);
-        this.snackBar.open(msg, 'Fermer', { duration: 4000, horizontalPosition: 'end' });
+        this.snackBar.open(msg, 'Fermer', {
+          duration: 4000,
+          horizontalPosition: 'end',
+          panelClass: ['success-snackbar'],
+        });
 
         if (this.currentTrack()?.id === track.id) {
           this.currentTrack.set(null);

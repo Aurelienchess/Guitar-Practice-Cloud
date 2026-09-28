@@ -137,6 +137,90 @@ div.mat-mdc-select-panel {
   color: #b8cbc5 !important;
 }
 
+/*
+ * Notification Toast / Pop-up (MatSnackBar) :
+ * Fond 100% opaque blanc avec ombre portée, texte sombre lisible,
+ * et bouton « Fermer » contrasté (fond vert et texte blanc au survol).
+ */
+.mat-mdc-snack-bar-container .mdc-snackbar__surface {
+  background-color: #ffffff !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18) !important;
+  border-radius: 8px !important;
+  border: 1px solid #d1ded9 !important;
+  border-left: 5px solid #1d755e !important;
+  padding: 12px 18px !important;
+}
+
+.mat-mdc-snack-bar-container .mdc-snackbar__label {
+  color: #17312a !important;
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+}
+
+/* Bouton « Fermer » de la snackbar : réinitialise le style global des boutons */
+.mat-mdc-snack-bar-container .mat-mdc-snack-bar-action,
+.mat-mdc-snack-bar-container .mdc-snackbar__action,
+.mat-mdc-snack-bar-container .mat-mdc-button,
+.mat-mdc-snack-bar-container button {
+  background: #ffffff !important;
+  color: #17312a !important;
+  border: 1.5px solid #1d755e !important;
+  border-radius: 6px !important;
+  padding: 0.35rem 0.9rem !important;
+  font-weight: 700 !important;
+  font-size: 0.85rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  box-shadow: none !important;
+  transform: none !important;
+  transition: all 0.18s ease !important;
+  cursor: pointer !important;
+}
+
+.mat-mdc-snack-bar-container .mdc-button__label {
+  color: #17312a !important;
+  font-weight: 700 !important;
+}
+
+/* Hover du bouton « Fermer » : fond blanc avec texte sombre bien visible et lisible */
+.mat-mdc-snack-bar-container .mat-mdc-snack-bar-action:hover,
+.mat-mdc-snack-bar-container .mdc-snackbar__action:hover,
+.mat-mdc-snack-bar-container .mat-mdc-button:hover,
+.mat-mdc-snack-bar-container button:hover {
+  background-color: #ffffff !important;
+  color: #17312a !important;
+  border-color: #124f40 !important;
+  box-shadow: 0 2px 6px rgba(23, 49, 42, 0.15) !important;
+  transform: none !important;
+}
+
+.mat-mdc-snack-bar-container button:hover .mdc-button__label,
+.mat-mdc-snack-bar-container .mat-mdc-button:hover .mdc-button__label {
+  color: #17312a !important;
+}
+
+/* Variante Erreur de la snackbar */
+.error-snackbar .mdc-snackbar__surface {
+  background-color: #7f1d1d !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+.error-snackbar .mdc-snackbar__label {
+  color: #ffffff !important;
+}
+
+.error-snackbar button {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(252, 165, 165, 0.4) !important;
+}
+
+.error-snackbar button:hover {
+  background-color: #fca5a5 !important;
+  color: #7f1d1d !important;
+}
+
 @media (max-width: 720px) {
   header, .grid { display: block; }
   .grid .card { margin-bottom: 1rem; }

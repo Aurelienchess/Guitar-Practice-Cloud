@@ -2,9 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
+import fs from "node:fs";
+import path from "node:path";
 import { createApp } from "../src/app.js";
 import { User } from "../src/models/User.js";
 import { Track } from "../src/models/Track.js";
+import { LOGS_DIR, cleanOldLogs } from "../src/logger.js";
 
 let server, base;
 const SECRET = process.env.JWT_SECRET || "tp1-development-secret";
@@ -205,3 +208,61 @@ test("sécurité : limitation de débit (429 Too Many Requests) après 3 tentati
   assert.ok(data4.message.includes("Trop de tentatives de connexion"));
   assert.ok(r4.headers.get("retry-after"));
 });
+
+test("sécurité : renouvellement de session via cookie HTTP-Only et déconnexion", async () => {
+  // 1. Sans cookie : refusé 401
+  const rEmpty = await fetch(`${base}/api/auth/refresh`, { method: "POST" });
+  assert.equal(rEmpty.status, 401);
+
+  // 2. Avec un faux cookie : refusé 401
+  const rFake = await fetch(`${base}/api/auth/refresh`, {
+    method: "POST",
+    headers: { Cookie: "gpc_session=fake-token" },
+  });
+  assert.equal(rFake.status, 401);
+
+  // 3. Déconnexion : purge du cookie côté serveur
+  const rLogout = await fetch(`${base}/api/auth/logout`, { method: "POST" });
+  assert.equal(rLogout.status, 200);
+  const setCookie = rLogout.headers.get("set-cookie") || "";
+  assert.ok(setCookie.includes("gpc_session="));
+});
+
+test("journalisation : écriture dans un fichier log avec date, heure et IP", async () => {
+  const res = await fetch(`${base}/api/health`);
+  assert.equal(res.status, 200);
+
+  // Petite pause pour laisser l'I/O asynchrone non-bloquante s'effectuer
+  await new Promise((resolve) => setTimeout(resolve, 60));
+
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const logFilePath = path.join(LOGS_DIR, `access-${todayStr}.log`);
+
+  assert.ok(fs.existsSync(logFilePath), "Le fichier de log du jour doit exister");
+  const content = fs.readFileSync(logFilePath, "utf8");
+
+  assert.ok(content.includes(todayStr), "Le log doit contenir la date");
+  assert.ok(content.includes("IP="), "Le log doit contenir l'IP");
+  assert.ok(content.includes("METHOD=GET"), "Le log doit contenir la méthode HTTP");
+  assert.ok(content.includes("URL=/api/health"), "Le log doit contenir la route");
+  assert.ok(content.includes("STATUS=200"), "Le log doit contenir le code HTTP 200");
+
+});
+
+test("journalisation : purge automatique des logs de plus de 6 mois", async () => {
+  // Simuler un vieux fichier de log de plus de 180 jours (200 jours)
+  const oldLogName = "access-2025-01-01.log";
+  const oldLogPath = path.join(LOGS_DIR, oldLogName);
+  fs.writeFileSync(oldLogPath, "[2025-01-01 10:00:00] IP=127.0.0.1 GET /api/test -> 200\n", "utf8");
+
+  const oldDate = new Date(Date.now() - 200 * 24 * 60 * 60 * 1000);
+  fs.utimesSync(oldLogPath, oldDate, oldDate);
+
+  const deleted = await cleanOldLogs(LOGS_DIR, 180);
+
+  assert.ok(deleted.includes(oldLogName), "Le fichier vieux de plus de 6 mois doit être supprimé");
+  assert.ok(!fs.existsSync(oldLogPath), "Le fichier vieux ne doit plus exister");
+});
+

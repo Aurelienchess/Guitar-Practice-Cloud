@@ -13,8 +13,15 @@ export class AppComponent implements OnInit {
   private readonly router = inject(Router);
 
   ngOnInit(): void {
-    // Si un token JWT existe en localStorage mais que le profil n'est pas encore en mémoire
-    if (this.auth.token() && !this.auth.currentUser()) {
+    // Si le token n'est pas en mémoire (ex: après un F5 ou réouverture de page),
+    // tente de restaurer la session de manière sécurisée via le cookie HTTP-Only
+    if (!this.auth.token()) {
+      this.auth.refresh().subscribe({
+        error: () => {
+          // Aucune session active, l'utilisateur reste visiteur
+        },
+      });
+    } else if (!this.auth.currentUser()) {
       this.auth.profile().subscribe({
         error: () => this.auth.logout(),
       });
