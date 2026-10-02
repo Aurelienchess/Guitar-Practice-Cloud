@@ -1,8 +1,9 @@
-Dans ce rapport se trouve tout mon cheminement pour la réalisation du tp1, 2 et 3 en ajoutant des améliorations à la fin. Il suit globalement la structure suivante pour chaque  :
+Dans ce rapport se trouve tout mon cheminement pour la réalisation du tp1, 2 et 3 en ajoutant des améliorations à la fin. Il suit globalement la structure suivante pour chaque ajouts :
 Prompt (que je donne à l'ia)
 Ce que l'ia a vu et analysé (généré par l'ia aussi)
 Ce que j'en ai compris, pourquoi j'ai fait ça et les preuves que ça marche (partie que j'ai écrite à la main sans ia sauf si je le précise)
 
+Un bilan de tous les ajouts optionnels ou hors tp, effectués puis expliqués dans ce fichier, se trouve dans le README.md
 
 # Rapport d'usage de l'IA - TP1
 
