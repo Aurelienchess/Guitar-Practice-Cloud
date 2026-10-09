@@ -919,8 +919,8 @@ Ici on remarque qu'il y a un upload puis une suppression et qu'à chaque fois, l
 Pour ce qui est du problème de pagination, celle-ci filtrait uniquement les données de la page courante en frontend ce qui crée un problème au niveau de la logique car l'utilisateur ne voit qu'une des résultats. Or maintenant que le critère de recherche dans a été déplacé dans la requête MongoDB, la base de données filtre l'ensemble de données avant de découper la page. Ainsi, si 4 morceaux correspondent aux critères de recherche, ils sont immédiatement regroupés sur la page 1 pour remplir les 5 emplacements demandés.
 Dans l'exemple ci-dessous on voit que le morceau "freestyle" qui se trouve en page 2 apparaît bien en première page quand le filtre le trouve avec trois autres résultats (soit quatre résultats à afficher en première page car la limite est de cinq) ce qui n'était pas le cas avant.
 <video controls width="100%" title="Démonstration du filtre et de la pagination">
-  <source src="./20260928-0715-44.7602074.mp4" type="video/mp4"></video> Si la vidéo ne marche pas il est possible qu'il faille aller la lire dans le projet :
-  "./20260928-0715-44.7602074.mp4"
+  <source src="./filtre.mp4" type="video/mp4"></video> Si la vidéo ne marche pas il est possible qu'il faille aller la lire dans le projet :
+  "./filtre.mp4"
 
 Enfin j'ai voulu personaliser légèrement mon application au niveau esthétique comme par exemple afficher la confirmation de suppression dans une pop-up et plus dans une alerte. Des petits ajouts ont aussi été réalisés comme l'alternance entre « ▶ » et « ⏸ » pour une meilleure expérience ou encore le profil affiché dans le header pour se rappeler de l'utilisateur connecté.
 
@@ -1091,3 +1091,115 @@ Avec dans l'ordre : le succès des tests, le lancement du backend et du frontend
 <video controls width="100%" title="Démonstration de l'application">
 <source src="demo-application-compresse.mp4" type="video/mp4"></video>
 Si la vidéo ne marche pas il est possible qu'il faille aller la lire dans le projet : "./demo-application-compresse.mp4"
+
+
+# Rapport d'usage de l'IA début du projet - TP4
+
+## Préparation et prototypage du visualiseur audio Butterchurn (MilkDrop WebGL)
+
+**Prompt :**
+> « Prépare moi une page html dans un petit dossier à part pour tester avant de l'intégrer au projet https://github.com/jberg/butterchurn. »
+
+### Rapport de ce que l'agent a fait et analysé
+
+1. **Création d'un banc d'essai autonome (`test-butterchurn/`) :**
+   - Création d'un dossier dédié `test-butterchurn/` isolé du code Angular principal pour prototyper et éprouver la bibliothèque sans risquer de perturber le build de l'application existante.
+   - Copie du fichier audio de démonstration `song1.mp3` dans le dossier pour permettre un essai immédiat sans configuration préalable.
+
+2. **Conception de la page de démonstration (`test-butterchurn/index.html`) :**
+   - **Intégration CDN :** Importation de `butterchurn@2.6.7` et de la suite complète de presets `butterchurn-presets@2.4.7` (plus de 300 presets visuels classiques MilkDrop).
+   - **Rendu WebGL2 & Web Audio API :**
+     - Instanciation d'un `AudioContext` au moment de la première interaction utilisateur (respect des politiques de sécurité autoplay des navigateurs modernes).
+     - Connexion d'un nœud source `createMediaElementSource(audioPlayer)` branché à la fois sur le visualiseur (pour l'analyse spectrale et fréquentielle en temps réel) et sur `audioContext.destination` (pour que le son sorte sur les haut-parleurs).
+     - Rendu fluide dans un `<canvas>` via la boucle d'animation `requestAnimationFrame`.
+   - **Interface utilisateur & Contrôles complets :**
+     - Lecteur audio HTML5 avec boutons Play / Pause dynamiques.
+     - Prise en charge multi-sources : lecture du fichier `song1.mp3` fourni ou chargement de n'importe quel fichier audio local via `<input type="file">` et `URL.createObjectURL`.
+     - Sélecteur de presets interactif (`<select>`), boutons Précédent, Suivant et Aléatoire (🎲).
+     - Mode automatique : transition fluide (*blending* de 2.5 secondes) changeant de preset toutes les 15 secondes.
+     - Affichage tête haute (HUD) en surimpression avec le nom du preset en cours d'exécution.
+     - Mode plein écran interactif adaptant dynamiquement la résolution du canvas WebGL aux dimensions de l'écran.
+
+3. **Documentation d'utilisation (`test-butterchurn/README.md`) :**
+   - Rédaction d'un guide expliquant comment exécuter le test (par double-clic direct sur le fichier `index.html` ou via un serveur local léger `npx serve test-butterchurn`).
+
+---
+
+### Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+
+Avant d'intégrer une bibliothèque multimédia complexe comme Butterchurn dans mon projet il est préférable de créer un prototype isolé pour faire des tests. Pour comprendre comment relier un audio à l'image en rythme et en plein écran. Butterchurn s'appuie sur des shaders lourds. C'est pour cela que le tester dans une page HTML permet de valider le comportement graphique et les performances. Une fois que le prototype fonctionne.
+![alt text](image-49.png)
+
+## Fonctionnalités souhaités, choix techniques et élaboration de la procédure
+
+**Prompt :**
+> « j'avais pour idée de créer une application orientée musique avec les mêmes fonctionnalités qu'actuellements mais en rajoutant des pages et le fond butterchurn en plein écran, adapté au rythme comme pour la page test. La première pour mixer sur le son actuellement en lecture avec pour fonctionnalités : Afficher la forme d’onde, Vu-mètres Stéreo pour volume droite/gauche, Animation temps réel des fréquences, Widgets custom (boutons rotatifs, sliders, switches), balance G/D, égaliseur de fréquences graphique pour ajuster le son, effets audio paramétrables (reverb, distortion, delay, filter (cutoff / resonance)).
+> La 2e page que je souhaite créer est pour changer le fond butterchurn et le paramétrer (modifier les 4/5 shaders qu'on aura mis en place (vitesse, oscillations...)).
+> Propose moi une manière de procéder et les choix techniques que tu aurai fait.»
+
+### 1. Rapport de ce que l'agent a proposé et analysé
+
+L'agent a défini une architecture complète, robuste et modulaire respectant les standards professionnels du Web Audio et du WebGL :
+
+#### A. Architecture Globale & Traitement Audio (Web Audio API)
+- **Choix technique du moteur audio :** Utilisation directe de la **Web Audio API native** (sans dépendance externe superflue). Elle offre des performances temps réel sans latence audible (< 10 ms) et permet d'orchestrer un graphe de traitement audio modulaire.
+- **Service centralisé `AudioEngineService` (Singleton Angular) :**
+  - Conserve un `AudioContext` unique et persistant sur toute l'application. Lorsque l'utilisateur navigue entre la bibliothèque de morceaux, la page de mixage studio et le laboratoire de shaders, la musique ne s'interrompt jamais.
+  - Chaîne de nœuds audio interconnectés :
+    $$\text{Source Audio} \longrightarrow \text{StereoPannerNode} \longrightarrow \text{BiquadFilterNodes (EQ 5 bandes)} \longrightarrow \text{WaveShaperNode (Distortion)} \longrightarrow \text{BiquadFilterNode (Filter)} \longrightarrow \text{DelayNode + Feedback} \longrightarrow \text{ConvolverNode / Reverb} \longrightarrow \text{Master Gain} \longrightarrow \text{Destination (Enceintes)}$$
+- **Visualisation & Analyse temps réel :**
+  - Deux instances de `AnalyserNode` branchées en parallèle :
+    - Nœud 1 (FFT 2048) : pour le tracé de la forme d'onde (*Waveform*) et du spectre de fréquences (*Spectrum Analyzer*).
+    - Nœud 2 (Stéréo) : séparation des canaux gauche et droit via `ChannelSplitterNode` pour alimenter les **Vu-mètres Stéréo L/R** avec calcul précis de niveau crête (*Peak*) et valeur efficace (*RMS*).
+
+#### B. Widgets d'Interface Utilisateur (UI) Audio Customisés
+- Conception de 3 composants Angular autonomes avec Signals :
+  1. `KnobComponent` : Potentiomètre rotatif style console analogique avec manipulation circulaire/verticale à la souris, arc SVG dynamique et affichage de la valeur.
+  2. `SliderComponent` : Fader vertical ou horizontal de studio avec graduation dB.
+  3. `SwitchComponent` : Interrupteur bistable On/Off avec voyant LED de bypass.
+
+#### C. Architecture Visuelle & Chaînage ISF Shaders
+- **Visualiseur Butterchurn en arrière-plan plein écran :**
+  - Un canvas WebGL fixé en arrière-plan (`position: fixed; z-index: -1`) piloté par un service partagé `VisualizerBackgroundService`.
+  - Les pages de l'application utilisent un style moderne en verre dépoli (*glassmorphism*) permettant d'admirer les animations réactives au rythme tout en utilisant les commandes de mixage.
+- **Moteur de Shaders ISF (Ping-Pong Framebuffers FBO) :**
+  - Chaînage d'une cascade de 5 shaders ISF compilés sur GPU :
+    1. *RGB Split / Aberration chromatique*
+    2. *Glitch & Scanline Wave*
+    3. *Color Grading & Saturation*
+    4. *Bloom / Lueur rayonnante*
+    5. *Écran Rétro CRT & Vignette*
+  - Possibilité de basculer la source visuelle vers la **Webcam** via `navigator.mediaDevices.getUserMedia()`.
+  - **Injecteur de scripts ISF :** Parseur d'en-tête JSON générant automatiquement les curseurs associés à n'importe quel shader collé par l'utilisateur.
+
+#### D. Découpage Méthodologique en 5 Étapes
+1. **Étape 1 (Validée) :** Banc d'essai autonome du pipeline Butterchurn ➔ 5 Shaders ISF ➔ Webcam et injecteur de scripts (`test-butterchurn/isf-pipeline.html`).
+2. **Étape 2 :** Implémentation du moteur Web Audio API complet (`AudioEngineService`) avec égaliseur, effets Reverb, Distortion, Delay, Filter, et analyseurs stéréo.
+3. **Étape 3 :** Création des composants visuels Angular (widgets `Knob`, `VuMeter`, `Waveform`, et page Studio de Mixage).
+4. **Étape 4 :** Création de la page Shaders Lab et intégration du fond d'écran plein écran persistant.
+5. **Étape 5 :** Génération de données avec generatedata.com, polish design et validation des tests.
+
+---
+
+### 2. Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+
+À travers ce prompt, j'ai voulu que l'ia comprenne que je souhaitais transformer l'application de gestion de fichiers en un studio numérique interactif pour musiciens, en combinant traitement audio avancé et rendu visuel scénique. 
+
+Grâce à l'ia j'ai maintenant la démarche à adopter ainsi que les outils techniques pour y parvenir.
+
+#### 1. Maîtrise de la procédure et du découpage par étapes
+Plutôt que de modifier directement le projet Angular et prendre le risque de casser le code existant des trois tps il faut d'abord isoler et prototyper (étape 1) le chaînage Butterchurn -> 5 Shaders ISF -> Webcam.
+Puis construire le moteur audio central (étape 2) qui consiste à mettre en place un service Angular pour que la lecture audio ne s'arrête pas quand l'utilisateur navigue d'une page à l'autre.
+Ensuite, il faudra développer les composants et les widgets (étape 3) réutilisables pour l'interface avant de créer la page de mixage.
+Par la suite, il faudra intégrer le fond visuel et les shaders (étape 4)en ajoutant le canvas plein écran persistant en arrière-plan et la page de réglage des shaders.
+Enfin, un peaufinage sera effectué pour générer des données réalistes et soigner le design avec notament des boutons et la navbar glassmorphism et un thème sombre une fois toutes les fonctionnalités réalisés.
+
+#### 2. Compréhension des outils techniques utilisés
+
+Pour le mixage et les effets il sera utilisé l'API du navigateur plutôt qu'une bibliothèque externe car elle garantit une latence quasi-nulle (inférieur à 10 ms) et permet de gérer la balance gauche / droite panoramique, la réalisation de l'égaliseur graphique multi-bandes, le filtre résonant avec fréquence de coupure. Cela permettra aussi de générer la distorsion harmonique, l'écho spatialisé avec contrôle du temps et du feedback et la réverbération acoustique avec dosage. Enfin il sera possible de séparer les canaux stéréo et mesurer en direct les niveaux crête et efficace des Vu-mètres, tout en dessinant la forme d’onde sur un canvas HTML5.
+
+Par ailleurs, le format ISF sera utilisé. Chaque shader contient un bloc JSON en en-tête décrivant ses paramètres (vitesse, amplitude, couleur...). Ce qui permet à l'application de lire ce JSON et de générer automatiquement les sliders correspondants dans l'interface pour n'importe quel shader injecté par l'utilisateur. En outre, pour faire passer l'image successivement à travers 4 ou 5 shaders sans ralentissement il faut utiliser le GPU.
+Enfin, on pourra imaginer une API permettant de récupérer le flux vidéo de la caméra et de l'utiliser directement comme texture d'entrée à la place de Butterchurn, ce qui permettrait d'appliquer l'ensemble de la chaîne de shaders en direct sur son propre flux vidéo.
+Enfin, les widgets Angular avec Signals pourront être utilisés pour manipuler les effets pour assurer une liaison instantanée et fluide avec les paramètres audio.
+
+
