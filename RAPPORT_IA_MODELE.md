@@ -1199,7 +1199,44 @@ Enfin, un peaufinage sera effectué pour générer des données réalistes et so
 Pour le mixage et les effets il sera utilisé l'API du navigateur plutôt qu'une bibliothèque externe car elle garantit une latence quasi-nulle (inférieur à 10 ms) et permet de gérer la balance gauche / droite panoramique, la réalisation de l'égaliseur graphique multi-bandes, le filtre résonant avec fréquence de coupure. Cela permettra aussi de générer la distorsion harmonique, l'écho spatialisé avec contrôle du temps et du feedback et la réverbération acoustique avec dosage. Enfin il sera possible de séparer les canaux stéréo et mesurer en direct les niveaux crête et efficace des Vu-mètres, tout en dessinant la forme d’onde sur un canvas HTML5.
 
 Par ailleurs, le format ISF sera utilisé. Chaque shader contient un bloc JSON en en-tête décrivant ses paramètres (vitesse, amplitude, couleur...). Ce qui permet à l'application de lire ce JSON et de générer automatiquement les sliders correspondants dans l'interface pour n'importe quel shader injecté par l'utilisateur. En outre, pour faire passer l'image successivement à travers 4 ou 5 shaders sans ralentissement il faut utiliser le GPU.
-Enfin, on pourra imaginer une API permettant de récupérer le flux vidéo de la caméra et de l'utiliser directement comme texture d'entrée à la place de Butterchurn, ce qui permettrait d'appliquer l'ensemble de la chaîne de shaders en direct sur son propre flux vidéo.
+Enfin, on pourra imaginer une API permettant de récupérer le flux vidéo de la caméra et de l'utiliser directement comme texture d'entrée à la place de butterchurn, ce qui permettrait d'appliquer l'ensemble de la chaîne de shaders en direct sur son propre flux vidéo.
 Enfin, les widgets Angular avec Signals pourront être utilisés pour manipuler les effets pour assurer une liaison instantanée et fluide avec les paramètres audio.
 
+## Étape 1 - Tests butterchern à travers des ISF Shaders
 
+**Prompt :**
+> « Pour rappel il faut conserver l'architecture actuelle (mongo, node frontend).
+> Passons à la première étape : 
+> Dans le dossier de tests, fichier index.html, j'aimerais que tu modifies pour pouvoir chaîner le traitement de butterchern à travers des ISF Shaders. Propose moi un moyen de le faire (génères-en quelques un pour testerp et je veux pouvoir ajouter des ISF Shaders (scripts)) »
+
+### Rapport de ce que l'agent a fait et modifié
+
+L'agent a transformé le fichier de banc d'essai [test-butterchurn/index.html](test-butterchurn/index.html) pour y intégrer un moteur complet de chaînage de shaders au format standard ISF (*Interactive Shader Format*) :
+
+1. **Moteur WebGL Ping-Pong FBO (`ISFPipelineEngine`) :**
+   - Implémentation d'un système de double Framebuffer (FBO A et FBO B) et textures associées pour exécuter une cascade de passes de shaders sans perte de performance (à 60 FPS constants).
+   - Le moteur capture le canvas de rendu Butterchurn (ou le flux vidéo Webcam) sous forme de texture WebGL, applique successivement chaque shader activé en réinjectant la sortie de la passe $N$ dans l'entrée de la passe $N+1$, puis projette le résultat final sur le canvas visible (`#outputCanvas`).
+
+2. **5 Shaders ISF intégrés et paramétrables :**
+   - **Shader 1 — Aberration Chromatique (RGB Shift) :** Décalage spectral des canaux Rouge, Vert et Bleu avec sliders d'amplitude (`amount`) et d'angle d'orientation (`angle`).
+   - **Shader 2 — Glitch & Scanline Wave :** Distorsion ondulatoire horizontale et découpage numérique (`waveSpeed`, `waveFreq`, `waveAmp`).
+   - **Shader 3 — Étalonnage Couleur & Teinte :** Réglage cinématique du contraste, de la saturation et de la luminosité (`saturation`, `contrast`, `brightness`).
+   - **Shader 4 — Lueur Rayonnante (Bloom / Glow) :** Effet de diffusion lumineuse simulant la rémanence sur les zones d'intensité visuelle (`glowStrength`, `spread`).
+   - **Shader 5 — Écran Rétro CRT & Vignette :** Simulation de moniteur d'arcade avec lignes de balayage cathodique entrelacées et vignettage périphérique (`scanlines`, `vignette`).
+
+3. **Prise en charge de la Webcam en temps réel :**
+   - Ajout d'un bouton de bascule permettant d'intervertir instantanément la source d'entrée entre Butterchurn (audio) et la Webcam (`navigator.mediaDevices.getUserMedia()`), appliquant l'intégralité de la chaîne de shaders en direct sur la vidéo de la caméra.
+
+4. **Injecteur dynamique de scripts ISF personnalisés :**
+   - Présence d'un éditeur de texte permettant de saisir ou coller n'importe quel code au format officiel ISF v2.
+   - Parseur automatique de l'en-tête JSON (`/*{ "INPUTS": [...] }*/`) : il extrait les variables, compile les shaders Vertex et Fragment sur le GPU, insère le nouveau filtre à la fin de la chaîne et génère automatiquement les curseurs de réglage correspondants dans le panneau latéral.
+
+---
+
+### Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+
+Ce test permet de valider la faisabilité du chaînage vidéo avant de l'intégrer dans le projet. J'ai compris que faire passer une image dans plusieurs shaders à la suite nécessite d'utiliser les Framebuffers Ping-Pong. Le GPU alterne entre deux tampons car il ne peut pas lire et écrire simultanément dans la même mémoire sans créer d'artefacts visuels. De plus, l'utilisation d'ISF permet à l'application, grâce à son en-tête JSON, de modfier les paramètres d'un script (curseurs et valeurs min/max) sans avoir besoin de créer un formulaire pour chaque nouvel effet.
+Ci-dessous la modification du fichier de test html avec les fonctionnalités du butterchern attendus :
+![alt text](image-50.png)
+
+## Étape 2 - La musique ne s'arrête pas en naviguant entre les pages
