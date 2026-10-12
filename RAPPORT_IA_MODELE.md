@@ -1266,3 +1266,41 @@ Ci-dessous la modification du fichier de test html avec les fonctionnalités du 
 Dans Angular, lorsqu'on navigue vers une autre page, le composant actif est détruit avec l'ensemble de son DOM, ce qui coupait la musique. Il faut donc déplacer la gestion du lecteur dans un service racine pour que l'élément audio reste actif en mémoire vive indépendamment des changements de routes. L'utilisation des Signals Angular garantit que l'état de lecture reste synchronisé en temps réel sur toute l'application.
 Ci-dessous une capture d'écran du morceau en cours de lecture alors que l'utilisateur se situe dans la page profil :
 ![alt text](image-51.png)
+
+## Étape 3 - Implémentation de la page de mixage audio (Web Audio API & composants interactifs)
+
+**Prompt :**
+> « Passons à l'étape 3 où tu dois implémenter la page mixage avec tous les composants demandés (balance gauche / droite panoramique, la réalisation de l'égaliseur graphique multi-bandes, le filtre résonant avec fréquence de coupure. Cela permettra aussi de générer la distorsion harmonique, l'écho spatialisé avec contrôle du temps et du feedback et la réverbération acoustique avec dosage.Enfin il sera possible de séparer les canaux stéréo et mesurer en direct les niveaux crête et efficace des Vu-mètres, tout en dessinant la forme d’onde sur un canvas HTML5.)»
+
+### Rapport de ce que l'agent a fait
+
+1. **Création du moteur Web Audio API (`src/app/shared/services/audio-engine.service.ts`) :**
+   - Interconnexion de la source HTMLAudioElement persistante avec un graphe audio complet traité directement sur le matériel audio :
+     - **Distorsion harmonique (`WaveShaperNode`) :** courbe sigmoïde simulant la saturation harmonique d'un ampli à lampes avec dosage de drive (0 à 100%) et interrupteur bypass.
+     - **Égaliseur graphique 5 bandes (`BiquadFilterNode`) :** filtres 60 Hz (lowshelf), 250 Hz (peaking), 1 kHz (peaking), 4 kHz (peaking) et 12 kHz (highshelf), ajustables de -12 dB à +12 dB, avec sélecteur de presets (Neutre, Bass Boost, Rock, Clarté, Acoustique, Vocal).
+     - **Filtre résonant paramétrable (`BiquadFilterNode`) :** modes commutables (Passe-bas, Passe-haut, Passe-bande), fréquence de coupure réglable (20 Hz à 18 kHz) et résonance $Q$ (0.1 à 18).
+     - **Écho & Delay spatialisé (`DelayNode` + gain de feedback) :** temps de retard de 50 ms à 1.2 s, boucle de réinjection et dosage Wet/Dry.
+     - **Réverbération acoustique (`ConvolverNode`) :** génération algorithmique d'une réponse impulsionnelle stéréo avec temps de décroissance réglable (Decay de 0.5s à 5.5s) et dosage Wet/Dry.
+     - **Balance panoramique G/D (`StereoPannerNode`) :** orientation spatiale stéréo de -100% (Gauche) à +100% (Droite).
+     - **Séparation stéréo & Vu-mètres (`ChannelSplitterNode` + 2 `AnalyserNode`) :** séparation des canaux L et R pour mesurer en continu les niveaux Crête (Peak), Efficace (RMS) et détecter l'écrêtage.
+     - **Oscilloscope & Spectre (`AnalyserNode`) :** capture des données temporelles et fréquentielles pour le dessin temps réel à 60 FPS sur `<canvas>`.
+     - **Volume Master (`GainNode`) :** contrôle d'amplification global relié à `audioCtx.destination`.
+
+2. **Création des composants d'interface réutilisables :**
+   - **`KnobComponent` (`src/app/shared/components/knob/`) :** potentiomètre rotatif style console de studio avec arc SVG réactif, manipulation fluide à la souris (glisser vertical), molette et touches fléchées.
+   - **`VuMeterComponent` (`src/app/shared/components/vu-meter/`) :** double bargraphe vertical L/R avec barres RMS dégradées (vert, jaune, rouge), curseur crête instantané, échelle graduée en dB (+3 à -48 dB) et LED de clipping.
+
+3. **Création de la page Studio (`src/app/components/studio-page/`) :**
+   - Implémentation du composant complet `StudioPageComponent` stylisé en console rack sombre avec effet verre dépoli (*glassmorphism*).
+   - Oscilloscope interactif sur balise `<canvas>` avec mode double : forme d'onde luminescente verte néon avec grille de visée ou analyseur spectral en barres FFT.
+   - En-tête avec télécommande rapide de lecture (Play/Pause, curseur de timeline, affichage du morceau en cours de lecture).
+   - Déclaration de la route protégée `/studio` dans `routes.ts` et ajout du bouton d'accès « Studio Mixage » dans la barre de navigation principale de l'application.
+
+---
+
+### Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+
+Désormais, la table de mixage est implémenté dans la nouvelle page et permet de mixer le morceau en cours de lecture avec toutes les fonctionnalités demandées. Capture d'écran ci-dessous du visuel :
+![alt text](image-52.png)
+Ici, l'utilisation directe de la Web Audio API permet d'obtenir un traitement audio sans latence, à effet immédiat et sans charger de lourdes bibliothèques externes. 
+La séparation des canaux permet calculer indépendamment le signal gauche et droit. La valeur Crête repère les pics transitoires pouvant saturer les enceintes et la valeur Efficace correspond au volume perçu par l'oreille humaine. Enfin, lier ces mesures à des composants comme les boutons rotatifs ou les canvas animé permet à l'utilisateur une immersion tout en restant parfaitement synchronisé avec le morceau en cours de lecture.

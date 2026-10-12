@@ -1,0 +1,55 @@
+<div
+  class="knob-container"
+  [class.is-disabled]="disabled"
+  tabindex="0"
+  role="slider"
+  [attr.aria-label]="label"
+  [attr.aria-valuemin]="min"
+  [attr.aria-valuemax]="max"
+  [attr.aria-valuenow]="value"
+  [attr.aria-valuetext]="formattedValue"
+  (mousedown)="onMouseDown($event)"
+  (wheel)="onWheel($event)"
+  (keydown)="onKeyDown($event)"
+>
+  @if (label) {
+    <span class="knob-label">{{ label }}</span>
+  }
+
+  <div class="knob-dial-wrap" [style.width.px]="size" [style.height.px]="size">
+    <!-- Fond SVG et arc circulaire -->
+    <svg class="knob-svg" viewBox="0 0 70 70">
+      <!-- Arc de fond inactif (270 degrés) -->
+      <circle
+        class="knob-track"
+        cx="35"
+        cy="35"
+        r="28"
+        stroke-dasharray="132 176"
+        stroke-dashoffset="0"
+        transform="rotate(135 35 35)"
+      />
+      <!-- Arc de valeur active illuminé -->
+      <circle
+        class="knob-value-arc"
+        cx="35"
+        cy="35"
+        r="28"
+        stroke-dasharray="132 176"
+        [style.stroke-dashoffset]="strokeDashoffset"
+        transform="rotate(135 35 35)"
+      />
+    </svg>
+
+    <!-- Corps rotatif du bouton physique -->
+    <div
+      class="knob-rotor"
+      [style.transform]="'rotate(' + rotationAngle + 'deg)'"
+    >
+      <div class="knob-indicator"></div>
+    </div>
+  </div>
+
+  <span class="knob-val-text">{{ formattedValue }}</span>
+</div>
+

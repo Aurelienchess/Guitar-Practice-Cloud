@@ -1,0 +1,39 @@
+<div class="vu-rack" aria-label="Vu-mètre stéréo" role="meter">
+  <div class="vu-header">
+    <span class="vu-title">VU-MÈTRE STÉRÉO</span>
+  </div>
+
+  <div class="vu-body">
+    <!-- Canal Gauche (L) -->
+    <div class="channel-col">
+      <div class="channel-label">L</div>
+      <div class="clip-led" [class.is-clipping]="isClippingL" title="Indicateur d'écrêtage"></div>
+      <div class="bar-track">
+        <div class="rms-bar" [style.height.%]="rmsPercentL"></div>
+        <div class="peak-indicator" [style.bottom.%]="peakPercentL"></div>
+      </div>
+    </div>
+
+    <!-- Échelle de graduations en dB -->
+    <div class="scale-col">
+      <span class="db-mark clip">+3</span>
+      <span class="db-mark zero">0</span>
+      <span class="db-mark">-3</span>
+      <span class="db-mark">-6</span>
+      <span class="db-mark">-12</span>
+      <span class="db-mark">-24</span>
+      <span class="db-mark">-48</span>
+    </div>
+
+    <!-- Canal Droit (R) -->
+    <div class="channel-col">
+      <div class="channel-label">R</div>
+      <div class="clip-led" [class.is-clipping]="isClippingR" title="Indicateur d'écrêtage"></div>
+      <div class="bar-track">
+        <div class="rms-bar" [style.height.%]="rmsPercentR"></div>
+        <div class="peak-indicator" [style.bottom.%]="peakPercentR"></div>
+      </div>
+    </div>
+  </div>
+</div>
+

@@ -6,6 +6,7 @@
   <nav aria-label="Navigation principale">
     @if (auth.token()) {
       <a routerLink="/tracks" routerLinkActive="active" class="nav-btn">Backing tracks</a>
+      <a routerLink="/studio" routerLinkActive="active" class="nav-btn">Studio Mixage</a>
       <a routerLink="/profile" routerLinkActive="active" class="nav-btn">Profil</a>
       @if (auth.currentUser(); as user) {
         <span class="user-greeting" title="Utilisateur connecté">

@@ -1,0 +1,369 @@
+<div class="studio-container">
+  <!-- En-tête / Barre de transport rapide du studio -->
+  <header class="studio-header">
+    <div class="studio-title-block">
+      <h1>STUDIO DE MIXAGE AUDIO</h1>
+      <p class="subtitle">Console de traitement sonore en temps réel (Web Audio API)</p>
+    </div>
+
+    <div class="studio-transport">
+      @if (audioPlayer.currentTrack(); as track) {
+        <div class="track-badge">
+          <span class="live-dot"></span>
+          <span class="track-title-text">{{ track.title }}</span>
+          @if (track.artist) {
+            <span class="track-artist-text">({{ track.artist }})</span>
+          }
+        </div>
+
+        <div class="transport-actions">
+          <button
+            type="button"
+            class="btn-play-pause"
+            (click)="togglePlay()"
+            [attr.aria-label]="audioPlayer.isPlaying() ? 'Mettre en pause' : 'Lire'"
+          >
+            {{ audioPlayer.isPlaying() ? '⏸ Pause' : '▶ Lecture' }}
+          </button>
+
+          <span class="time-readout">
+            {{ formatTime(audioPlayer.currentTime()) }} / {{ formatTime(audioPlayer.duration()) }}
+          </span>
+
+          <input
+            type="range"
+            class="seek-slider"
+            min="0"
+            [max]="audioPlayer.duration() || 100"
+            [value]="audioPlayer.currentTime()"
+            (input)="onSeek($event)"
+            aria-label="Position temporelle"
+          />
+        </div>
+      } @else {
+        <div class="no-track-banner">
+          <span>Aucun morceau chargé.</span>
+          <a routerLink="/tracks" class="btn-select-track">Choisir une piste dans la bibliothèque</a>
+        </div>
+      }
+    </div>
+  </header>
+
+  <!-- Grille principale de la console de mixage -->
+  <div class="rack-grid">
+    <!-- MODULE 1 : Moniteur Visuel & Section Master (Oscilloscope + Vu-mètre + Panoramique) -->
+    <section class="rack-card master-card" aria-labelledby="section-master-title">
+      <div class="card-header">
+        <h2 id="section-master-title">MONITEUR VISUEL & SORTIE MASTER</h2>
+        <div class="visualizer-toggle">
+          <button
+            type="button"
+            class="mode-btn"
+            [class.active]="visualizerMode() === 'waveform'"
+            (click)="setVisualizerMode('waveform')"
+          >
+            Onde (Oscillo)
+          </button>
+          <button
+            type="button"
+            class="mode-btn"
+            [class.active]="visualizerMode() === 'spectrum'"
+            (click)="setVisualizerMode('spectrum')"
+          >
+            Spectre (FFT)
+          </button>
+        </div>
+      </div>
+
+      <div class="master-layout">
+        <!-- Canvas d'oscilloscope en direct -->
+        <div class="canvas-wrapper">
+          <canvas
+            #visualizerCanvas
+            width="560"
+            height="200"
+            class="oscilloscope-canvas"
+            title="Forme d'onde et analyse spectrale en temps réel"
+          ></canvas>
+        </div>
+
+        <!-- Vu-Mètre Stéréo L/R -->
+        <div class="vumeter-wrapper">
+          <app-vu-meter
+            [peakL]="audioEngine.meterPeakL()"
+            [rmsL]="audioEngine.meterRmsL()"
+            [peakR]="audioEngine.meterPeakR()"
+            [rmsR]="audioEngine.meterRmsR()"
+          />
+        </div>
+
+        <!-- Contrôles Master & Balance -->
+        <div class="master-controls">
+          <app-knob
+            label="Balance L/R"
+            [value]="audioEngine.pan()"
+            [min]="-1"
+            [max]="1"
+            [step]="0.05"
+            [size]="64"
+            [displayFn]="formatPan"
+            (valueChange)="onPanChange($event)"
+          />
+
+          <app-knob
+            label="Master Vol"
+            [value]="audioEngine.masterVolume()"
+            [min]="0"
+            [max]="1.5"
+            [step]="0.05"
+            [size]="64"
+            unit="x"
+            (valueChange)="onMasterVolumeChange($event)"
+          />
+        </div>
+      </div>
+    </section>
+
+    <!-- MODULE 2 : Égaliseur Graphique 5 Bandes -->
+    <section class="rack-card eq-card" aria-labelledby="section-eq-title">
+      <div class="card-header">
+        <h2 id="section-eq-title">ÉGALISEUR GRAPHIQUE (5 BANDES)</h2>
+        <button type="button" class="btn-reset" (click)="resetEq()">Rétablir à plat (0 dB)</button>
+      </div>
+
+      <!-- Sélecteur de pré-réglages (Presets) -->
+      <div class="presets-bar">
+        <span class="preset-label">Presets :</span>
+        @for (p of presets; track p.name) {
+          <button
+            type="button"
+            class="preset-chip"
+            [class.active]="activePresetName() === p.name"
+            (click)="applyPreset(p)"
+          >
+            {{ p.name }}
+          </button>
+        }
+      </div>
+
+      <!-- Faders d'égalisation -->
+      <div class="eq-faders-grid">
+        @for (band of eqBands; track band.frequency; let idx = $index) {
+          <div class="eq-fader-col">
+            <span class="eq-gain-val">
+              {{ audioEngine.eqGains()[idx] > 0 ? '+' : '' }}{{ audioEngine.eqGains()[idx] }} dB
+            </span>
+            <div class="slider-track-wrap">
+              <input
+                type="range"
+                class="vertical-slider"
+                orient="vertical"
+                min="-12"
+                max="12"
+                step="0.5"
+                [value]="audioEngine.eqGains()[idx]"
+                (input)="onEqChange(idx, $event)"
+                [attr.aria-label]="'Gain bande ' + band.label"
+              />
+            </div>
+            <span class="eq-band-label">{{ band.label }}</span>
+          </div>
+        }
+      </div>
+    </section>
+
+    <!-- MODULE 3 : Filtre Résonant Multimode -->
+    <section class="rack-card filter-card" aria-labelledby="section-filter-title">
+      <div class="card-header">
+        <h2 id="section-filter-title">FILTRE RÉSONANT PARAMÉTRABLE</h2>
+        <button
+          type="button"
+          class="bypass-btn"
+          [class.active]="!audioEngine.filterBypass()"
+          (click)="toggleFilterBypass()"
+        >
+          {{ audioEngine.filterBypass() ? 'BYPASS' : 'ACTIF' }}
+        </button>
+      </div>
+
+      <!-- Commutateur de types de filtre -->
+      <div class="filter-types-row">
+        <button
+          type="button"
+          class="type-btn"
+          [class.active]="audioEngine.filterType() === 'lowpass'"
+          (click)="setFilterType('lowpass')"
+        >
+          Passe-bas (Lowpass)
+        </button>
+        <button
+          type="button"
+          class="type-btn"
+          [class.active]="audioEngine.filterType() === 'highpass'"
+          (click)="setFilterType('highpass')"
+        >
+          Passe-haut (Highpass)
+        </button>
+        <button
+          type="button"
+          class="type-btn"
+          [class.active]="audioEngine.filterType() === 'bandpass'"
+          (click)="setFilterType('bandpass')"
+        >
+          Passe-bande (Bandpass)
+        </button>
+      </div>
+
+      <div class="knobs-row">
+        <app-knob
+          label="Coupure (Cutoff)"
+          [value]="audioEngine.filterCutoff()"
+          [min]="40"
+          [max]="18000"
+          [step]="20"
+          [size]="72"
+          [disabled]="audioEngine.filterBypass()"
+          [displayFn]="formatHz"
+          (valueChange)="onFilterCutoffChange($event)"
+        />
+
+        <app-knob
+          label="Résonance (Q)"
+          [value]="audioEngine.filterResonance()"
+          [min]="0.1"
+          [max]="18"
+          [step]="0.2"
+          [size]="72"
+          [disabled]="audioEngine.filterBypass()"
+          (valueChange)="onFilterResonanceChange($event)"
+        />
+      </div>
+    </section>
+
+    <!-- MODULE 4 : Distorsion Harmonique (Warmth & Saturation) -->
+    <section class="rack-card distortion-card" aria-labelledby="section-distortion-title">
+      <div class="card-header">
+        <h2 id="section-distortion-title">DISTORSION HARMONIQUE</h2>
+        <button
+          type="button"
+          class="bypass-btn"
+          [class.active]="!audioEngine.distortionBypass()"
+          (click)="toggleDistortionBypass()"
+        >
+          {{ audioEngine.distortionBypass() ? 'BYPASS' : 'ACTIF' }}
+        </button>
+      </div>
+
+      <p class="module-desc">Saturation douce non linéaire simulant la chaleur d'un préampli à lampes.</p>
+
+      <div class="knobs-row">
+        <app-knob
+          label="Drive / Gain"
+          [value]="audioEngine.distortionDrive()"
+          [min]="0"
+          [max]="100"
+          [step]="1"
+          [size]="72"
+          unit="%"
+          [disabled]="audioEngine.distortionBypass()"
+          (valueChange)="onDistortionDriveChange($event)"
+        />
+      </div>
+    </section>
+
+    <!-- MODULE 5 : Écho & Delay Spatialisé -->
+    <section class="rack-card delay-card" aria-labelledby="section-delay-title">
+      <div class="card-header">
+        <h2 id="section-delay-title">ÉCHO & DELAY SPATIALISÉ</h2>
+        <button
+          type="button"
+          class="bypass-btn"
+          [class.active]="!audioEngine.delayBypass()"
+          (click)="toggleDelayBypass()"
+        >
+          {{ audioEngine.delayBypass() ? 'BYPASS' : 'ACTIF' }}
+        </button>
+      </div>
+
+      <div class="knobs-row">
+        <app-knob
+          label="Temps (Time)"
+          [value]="audioEngine.delayTime()"
+          [min]="0.05"
+          [max]="1.2"
+          [step]="0.02"
+          [size]="66"
+          [disabled]="audioEngine.delayBypass()"
+          [displayFn]="formatSeconds"
+          (valueChange)="onDelayTimeChange($event)"
+        />
+
+        <app-knob
+          label="Feedback"
+          [value]="audioEngine.delayFeedback() * 100"
+          [min]="0"
+          [max]="80"
+          [step]="1"
+          [size]="66"
+          unit="%"
+          [disabled]="audioEngine.delayBypass()"
+          (valueChange)="onDelayFeedbackChange($event / 100)"
+        />
+
+        <app-knob
+          label="Dosage (Mix)"
+          [value]="audioEngine.delayMix()"
+          [min]="0"
+          [max]="100"
+          [step]="1"
+          [size]="66"
+          unit="%"
+          [disabled]="audioEngine.delayBypass()"
+          (valueChange)="onDelayMixChange($event)"
+        />
+      </div>
+    </section>
+
+    <!-- MODULE 6 : Réverbération Acoustique -->
+    <section class="rack-card reverb-card" aria-labelledby="section-reverb-title">
+      <div class="card-header">
+        <h2 id="section-reverb-title">RÉVERBÉRATION ACOUSTIQUE</h2>
+        <button
+          type="button"
+          class="bypass-btn"
+          [class.active]="!audioEngine.reverbBypass()"
+          (click)="toggleReverbBypass()"
+        >
+          {{ audioEngine.reverbBypass() ? 'BYPASS' : 'ACTIF' }}
+        </button>
+      </div>
+
+      <div class="knobs-row">
+        <app-knob
+          label="Décroissance (Decay)"
+          [value]="audioEngine.reverbDecay()"
+          [min]="0.5"
+          [max]="5.5"
+          [step]="0.25"
+          [size]="66"
+          unit="s"
+          [disabled]="audioEngine.reverbBypass()"
+          (valueChange)="onReverbDecayChange($event)"
+        />
+
+        <app-knob
+          label="Dosage (Mix)"
+          [value]="audioEngine.reverbMix()"
+          [min]="0"
+          [max]="100"
+          [step]="1"
+          [size]="66"
+          unit="%"
+          [disabled]="audioEngine.reverbBypass()"
+          (valueChange)="onReverbMixChange($event)"
+        />
+      </div>
+    </section>
+  </div>
+</div>
+

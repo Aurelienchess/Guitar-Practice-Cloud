@@ -1,0 +1,108 @@
+:host {
+  display: inline-block;
+  user-select: none;
+}
+
+.knob-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  outline: none;
+  padding: 0.4rem;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+
+.knob-container:active {
+  cursor: grabbing;
+}
+
+.knob-container:focus-visible {
+  box-shadow: 0 0 0 2px #00f5b4;
+}
+
+.knob-container.is-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.knob-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #a0c4ba;
+  margin-bottom: 0.35rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.knob-dial-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.knob-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.knob-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.knob-value-arc {
+  fill: none;
+  stroke: #00f5b4;
+  stroke-width: 5;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgba(0, 245, 180, 0.6));
+  transition: stroke-dashoffset 0.05s linear;
+}
+
+.knob-rotor {
+  width: 72%;
+  height: 72%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #2a3d36, #14201c 85%);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.25),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.8),
+    0 4px 10px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  transition: transform 0.04s ease-out;
+}
+
+.knob-indicator {
+  width: 3px;
+  height: 9px;
+  background: #00f5b4;
+  border-radius: 2px;
+  margin-top: 3px;
+  box-shadow: 0 0 6px #00f5b4;
+}
+
+.knob-val-text {
+  font-size: 0.75rem;
+  font-family: monospace;
+  font-weight: 600;
+  color: #e2f1ec;
+  margin-top: 0.35rem;
+  text-align: center;
+}
+

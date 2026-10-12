@@ -1,6 +1,7 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { Track } from '../models/track.model';
 import { TrackService } from './track.service';
+import { AudioEngineService } from './audio-engine.service';
 
 /**
  * Service centralisé gérant la lecture audio de manière persistante.
@@ -12,6 +13,7 @@ import { TrackService } from './track.service';
 })
 export class AudioPlayerService {
   private readonly trackService = inject(TrackService);
+  private readonly audioEngine = inject(AudioEngineService);
 
   /** Élément audio HTML5 unique et persistant en mémoire vive pour toute l'application */
   private readonly audioEl = new Audio();
@@ -40,7 +42,11 @@ export class AudioPlayerService {
   constructor() {
     this.audioEl.preload = 'metadata';
 
+    // Raccordement au moteur Web Audio API
+    this.audioEngine.init(this.audioEl);
+
     this.audioEl.addEventListener('play', () => {
+      this.audioEngine.resume();
       this.isPlaying.set(true);
     });
 
@@ -136,6 +142,7 @@ export class AudioPlayerService {
   }
 
   resume(): void {
+    this.audioEngine.resume();
     if (this.audioEl.src) {
       this.audioEl
         .play()
