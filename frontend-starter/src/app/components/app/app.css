@@ -114,3 +114,142 @@ nav {
     gap: 0.5rem;
   }
 }
+
+/* Espacement du contenu quand la barre est active */
+main.has-player {
+  padding-bottom: 95px;
+}
+
+/* Barre de lecture audio globale et persistante */
+.global-audio-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(14, 30, 26, 0.95);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(114, 207, 183, 0.35);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.45);
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  z-index: 1000;
+  color: #ffffff;
+}
+
+.track-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 200px;
+  max-width: 280px;
+}
+
+.now-playing-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #72cfb7;
+  letter-spacing: 0.5px;
+}
+
+.track-title {
+  font-size: 0.95rem;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-artist {
+  font-size: 0.8rem;
+  color: #a8cfc4;
+}
+
+.playback-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  max-width: 650px;
+}
+
+.play-toggle-btn {
+  background: #19b28b;
+  color: #0c1e19;
+  border: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s ease, background-color 0.2s ease;
+}
+
+.play-toggle-btn:hover {
+  background: #2ee6b5;
+  transform: scale(1.06);
+}
+
+.play-toggle-btn:active {
+  transform: scale(0.95);
+}
+
+.time-label {
+  font-size: 0.8rem;
+  color: #a8cfc4;
+  font-variant-numeric: tabular-nums;
+  min-width: 35px;
+}
+
+.seek-bar {
+  flex: 1;
+  accent-color: #19b28b;
+  cursor: pointer;
+  height: 5px;
+  border-radius: 3px;
+}
+
+.player-actions {
+  display: flex;
+  align-items: center;
+}
+
+.btn-stop {
+  background: transparent;
+  color: #a8cfc4;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.btn-stop:hover {
+  background: rgba(231, 76, 60, 0.2);
+  color: #ff6b6b;
+  border-color: #ff6b6b;
+}
+
+@media (max-width: 800px) {
+  .global-audio-bar {
+    flex-wrap: wrap;
+    padding: 8px 16px;
+    gap: 8px;
+  }
+  .playback-controls {
+    order: 3;
+    width: 100%;
+    max-width: 100%;
+  }
+}
+

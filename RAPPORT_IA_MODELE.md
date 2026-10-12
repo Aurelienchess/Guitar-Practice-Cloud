@@ -1239,4 +1239,30 @@ Ce test permet de valider la faisabilité du chaînage vidéo avant de l'intégr
 Ci-dessous la modification du fichier de test html avec les fonctionnalités du butterchern attendus :
 ![alt text](image-50.png)
 
-## Étape 2 - La musique ne s'arrête pas en naviguant entre les pages
+## Étape 2 - Service de lecture audio avec une navigation sans coupure
+
+**Prompt :**
+> « maintenant passons à l'étape 2 où tu vas d'abord mettre en place un service Angular pour que la lecture audio ne s'arrête pas quand l'utilisateur navigue d'une page à l'autre.»
+
+### Rapport de ce que l'agent a fait
+
+1. **Création du service singleton `AudioPlayerService` (`src/app/shared/services/audio-player.service.ts`) :**
+   - Service racine (`providedIn: 'root'`) conservant une instance unique de `Audio` HTML5 en mémoire vive.
+   - Exposition d'états réactifs via Signals Angular 22 (`currentTrack`, `isPlaying`, `currentTime`, `duration`, `audioUrl`, `loading`, `error`).
+   - Méthodes de contrôle (`playTrack`, `togglePlay`, `pause`, `resume`, `seek`, `setVolume`, `stop`) et gestion propre de la mémoire (révocation des ObjectURL).
+
+2. **Refactorisation de `TracksPageComponent` :**
+   - Délégation complète du chargement et du contrôle de lecture au `AudioPlayerService`.
+   - Suppression du lecteur `<audio>` local qui était détruit à la sortie de la page.
+
+3. **Intégration d'une barre de lecture globale (`AppComponent`) :**
+   - Ajout d'une barre de lecture persistante en bas de page (`.global-audio-bar` en style glassmorphism) affichant les métadonnées de la piste, boutons Play/Pause/Stop, temps écoulé/total et barre de progression cliquable.
+   - La lecture audio continue sans coupure lors des navigations entre les routes (`/tracks`, `/profile`, futures pages).
+
+---
+
+### Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+
+Dans Angular, lorsqu'on navigue vers une autre page, le composant actif est détruit avec l'ensemble de son DOM, ce qui coupait la musique. Il faut donc déplacer la gestion du lecteur dans un service racine pour que l'élément audio reste actif en mémoire vive indépendamment des changements de routes. L'utilisation des Signals Angular garantit que l'état de lecture reste synchronisé en temps réel sur toute l'application.
+Ci-dessous une capture d'écran du morceau en cours de lecture alors que l'utilisateur se situe dans la page profil :
+![alt text](image-51.png)

@@ -110,22 +110,6 @@
         aria-label="Sélectionner la page des morceaux"
       >
       </mat-paginator>
-
-      @if (audioUrl()) {
-        <div class="player-container">
-          @if (currentTrack(); as track) {
-            <p>Lecture en cours : <b>{{ track.title }}</b> {{ track.artist ? 'par ' + track.artist : '' }}</p>
-          }
-          <audio
-            [src]="audioUrl()"
-            controls
-            autoplay
-            (play)="onAudioPlay($event)"
-            (pause)="onAudioPause()"
-            (ended)="onAudioEnded()"
-          ></audio>
-        </div>
-      }
     </article>
   </div>
 

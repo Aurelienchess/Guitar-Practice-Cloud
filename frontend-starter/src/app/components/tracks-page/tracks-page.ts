@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, computed, DestroyRef, ElementRef, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, computed, ElementRef, inject, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { HttpEventType } from '@angular/common/http';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
@@ -6,6 +6,7 @@ import { MatPaginatorIntl, MatPaginatorModule, PageEvent } from '@angular/materi
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Track } from '../../shared/models/track.model';
 import { TrackService } from '../../shared/services/track.service';
+import { AudioPlayerService } from '../../shared/services/audio-player.service';
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 Mo
 const ALLOWED_MIME_TYPES = new Set([
@@ -42,7 +43,7 @@ function frenchPaginatorIntl(): MatPaginatorIntl {
 })
 export class TracksPageComponent implements AfterViewInit {
   private readonly service = inject(TrackService);
-  private readonly destroyRef = inject(DestroyRef);
+  private readonly audioPlayer = inject(AudioPlayerService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly hostRef = inject(ElementRef);
 
@@ -58,13 +59,10 @@ export class TracksPageComponent implements AfterViewInit {
   readonly error = signal('');
   readonly uploadSuccess = signal('');
   readonly deleteSuccess = signal('');
-  readonly currentTrack = signal<Track | null>(null);
-  readonly audioUrl = signal('');
-  readonly isPlaying = signal(false);
+  readonly currentTrack = this.audioPlayer.currentTrack;
+  readonly audioUrl = this.audioPlayer.audioUrl;
+  readonly isPlaying = this.audioPlayer.isPlaying;
   readonly trackToDelete = signal<Track | null>(null);
-
-  /** Référence directe au lecteur audio, capturée lors des événements play/pause/ended */
-  private audioEl: HTMLAudioElement | null = null;
 
   readonly title = new FormControl('', { nonNullable: true });
   readonly searchFilter = new FormControl('', { nonNullable: true });
@@ -85,12 +83,6 @@ export class TracksPageComponent implements AfterViewInit {
       });
 
     this.load();
-
-    // Révocation propre de l'URL Blob en mémoire à la destruction du composant
-    this.destroyRef.onDestroy(() => {
-      const url = this.audioUrl();
-      if (url) URL.revokeObjectURL(url);
-    });
   }
 
   ngAfterViewInit(): void {
@@ -251,11 +243,7 @@ export class TracksPageComponent implements AfterViewInit {
         });
 
         if (this.currentTrack()?.id === track.id) {
-          this.currentTrack.set(null);
-          this.isPlaying.set(false);
-          const previousUrl = this.audioUrl();
-          if (previousUrl) URL.revokeObjectURL(previousUrl);
-          this.audioUrl.set('');
+          this.audioPlayer.stop();
         }
         // Si on était sur la dernière page et qu'elle devient vide, reculer d'une page
         if (this.tracks().length === 1 && this.page() > 1) {
@@ -287,45 +275,6 @@ export class TracksPageComponent implements AfterViewInit {
   }
 
   togglePlay(track: Track): void {
-    if (this.currentTrack()?.id === track.id && this.audioUrl()) {
-      // Le morceau est déjà chargé : basculer entre play et pause via la référence DOM
-      if (this.isPlaying()) {
-        this.audioEl?.pause();
-      } else {
-        this.audioEl?.play();
-      }
-    } else {
-      // Nouveau morceau : charger le blob audio depuis le serveur
-      this.play(track);
-    }
-  }
-
-  onAudioPlay(event: Event): void {
-    this.audioEl = event.target as HTMLAudioElement;
-    this.isPlaying.set(true);
-  }
-
-  onAudioPause(): void {
-    this.isPlaying.set(false);
-  }
-
-  onAudioEnded(): void {
-    this.isPlaying.set(false);
-  }
-
-  play(track: Track): void {
-    this.error.set('');
-    this.service.audio(track.id).subscribe({
-      next: (blob) => {
-        const previousUrl = this.audioUrl();
-        if (previousUrl) URL.revokeObjectURL(previousUrl);
-        this.currentTrack.set(track);
-        this.audioUrl.set(URL.createObjectURL(blob));
-        this.isPlaying.set(true);
-      },
-      error: (err: { error?: { message?: string } }) => {
-        this.error.set(err.error?.message ?? `Impossible de lire le fichier audio de « ${track.title} ».`);
-      },
-    });
+    this.audioPlayer.togglePlay(track);
   }
 }
