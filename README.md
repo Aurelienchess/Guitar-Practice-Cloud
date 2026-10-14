@@ -93,3 +93,20 @@ En plus des exigences obligatoires des trois sujets de TP, plusieurs fonctionnal
 ### 5. Suite de tests automatisés
 - 12 tests backend : Ajout de tests de contrat et de sécurité pour la gestion des jetons invalides, les erreurs d'upload, le rate limiting, la déconnexion par cookie, la journalisation et la purge après 6 mois.
 - Tests frontend : Validation des services et intercepteurs avec simulation réseau.
+
+### 6. Fonctionnalités et innovations multimédia (TP4)
+- **Studio de Mixage Audio complet (Web Audio API) :**
+  - Chaîne de traitement audio en temps réel : Égaliseur graphique multi-bandes avec presets, filtre résonant (fréquence de coupure et résonance Q), distorsion harmonique simulant un ampli à lampes (WaveShaper), écho/delay spatialisé avec boucle de feedback, réverbération acoustique par convolution (ConvolverNode) et balance panoramique stéréo G/D.
+  - Widgets interactifs sur-mesure : Potentiomètres rotatifs analogiques (`KnobComponent`) manipulables à la souris et à la molette.
+  - Vu-mètres Stéréo professionnels (`VuMeterComponent`) : Séparation physique des canaux L/R (`ChannelSplitterNode`), mesure dynamique des niveaux Crête (Peak) et Efficace (RMS), et détection d'écrêtage.
+  - Oscilloscope et Analyseur spectral FFT : Rendu visuel dynamique à 60 FPS sur Canvas HTML5 (forme d'onde luminescente et barres de fréquences).
+- **Fond d'écran Butterchurn WebGL persistant :**
+  - Rendu visuel MilkDrop réactif au rythme de la musique en cours de lecture, tournant en plein écran en continu derrière toutes les pages de l'application (`/tracks`, `/studio`, `/shaders`, `/profile`).
+  - Sélection parmi plus de 300 presets avec transition fluide (*blending*), curseur d'opacité et masquage rapide.
+- **Laboratoire de Shaders ISF (Interactive Shader Format) & Webcam :**
+  - Chaîne de 5 shaders ISF en cascade (aberration chromatique RGB, glitch ondulatoire, bloom lumineux, étalonnage couleur/saturation, écran rétro CRT avec scanlines).
+  - Injecteur de scripts ISF personnalisés : Éditeur GLSL intégré avec parseur d'en-tête JSON pour compiler et injecter du code shader directement sur le GPU en cours d'exécution.
+  - Prise en charge du flux Webcam en direct (`getUserMedia`) comme texture source alternative injectée dans la chaîne de shaders.
+- **Lecture Audio Ininterrompue lors de la navigation :**
+  - Service racine singleton (`AudioPlayerService`) maintenant la lecture audio sans coupure lors des changements de routes.
+  - Barre de lecture persistante en îlot flottant (*glassmorphism*) en bas d'écran avec timeline interactive et contrôles Play/Pause/Stop.

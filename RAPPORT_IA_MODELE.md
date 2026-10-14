@@ -1497,6 +1497,6 @@ Si la vidéo ne marche pas il est possible qu'il faille aller la lire dans le pr
 
 ## Page de mixage
 Ci-dessous on peut voir tous les effets possibles pour la page de mixage comme les widgets UI rotatifs, les vu-mètres Stéréo, l'oscilloscope temps réel et la diversité des 6 modules audio.
-<video controls src="./page-mixage.mp4" title="Title"></video>
+<video controls src="page-mixage.mp4" title="Title"></video>
 Si la vidéo ne marche pas il est possible qu'il faille aller la lire dans le projet :
   "./page-mixage.mp4"
