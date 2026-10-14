@@ -1202,12 +1202,12 @@ Par ailleurs, le format ISF sera utilisé. Chaque shader contient un bloc JSON e
 Enfin, on pourra imaginer une API permettant de récupérer le flux vidéo de la caméra et de l'utiliser directement comme texture d'entrée à la place de butterchurn, ce qui permettrait d'appliquer l'ensemble de la chaîne de shaders en direct sur son propre flux vidéo.
 Enfin, les widgets Angular avec Signals pourront être utilisés pour manipuler les effets pour assurer une liaison instantanée et fluide avec les paramètres audio.
 
-## Étape 1 - Tests butterchern à travers des ISF Shaders
+## Étape 1 - Tests butterchurn à travers des ISF Shaders
 
 **Prompt :**
 > « Pour rappel il faut conserver l'architecture actuelle (mongo, node frontend).
 > Passons à la première étape : 
-> Dans le dossier de tests, fichier index.html, j'aimerais que tu modifies pour pouvoir chaîner le traitement de butterchern à travers des ISF Shaders. Propose moi un moyen de le faire (génères-en quelques un pour testerp et je veux pouvoir ajouter des ISF Shaders (scripts)) »
+> Dans le dossier de tests, fichier index.html, j'aimerais que tu modifies pour pouvoir chaîner le traitement de butterchurn à travers des ISF Shaders. Propose moi un moyen de le faire (génères-en quelques un pour testerp et je veux pouvoir ajouter des ISF Shaders (scripts)) »
 
 ### Rapport de ce que l'agent a fait et modifié
 
@@ -1236,7 +1236,7 @@ L'agent a transformé le fichier de banc d'essai [test-butterchurn/index.html](t
 ### Ce que j'en ai compris, pourquoi j'ai voulu faire ça
 
 Ce test permet de valider la faisabilité du chaînage vidéo avant de l'intégrer dans le projet. J'ai compris que faire passer une image dans plusieurs shaders à la suite nécessite d'utiliser les Framebuffers Ping-Pong. Le GPU alterne entre deux tampons car il ne peut pas lire et écrire simultanément dans la même mémoire sans créer d'artefacts visuels. De plus, l'utilisation d'ISF permet à l'application, grâce à son en-tête JSON, de modfier les paramètres d'un script (curseurs et valeurs min/max) sans avoir besoin de créer un formulaire pour chaque nouvel effet.
-Ci-dessous la modification du fichier de test html avec les fonctionnalités du butterchern attendus :
+Ci-dessous la modification du fichier de test html avec les fonctionnalités du butterchurn attendus :
 ![alt text](image-50.png)
 
 ## Étape 2 - Service de lecture audio avec une navigation sans coupure
@@ -1304,3 +1304,42 @@ Désormais, la table de mixage est implémenté dans la nouvelle page et permet 
 ![alt text](image-52.png)
 Ici, l'utilisation directe de la Web Audio API permet d'obtenir un traitement audio sans latence, à effet immédiat et sans charger de lourdes bibliothèques externes. 
 La séparation des canaux permet calculer indépendamment le signal gauche et droit. La valeur Crête repère les pics transitoires pouvant saturer les enceintes et la valeur Efficace correspond au volume perçu par l'oreille humaine. Enfin, lier ces mesures à des composants comme les boutons rotatifs ou les canvas animé permet à l'utilisateur une immersion tout en restant parfaitement synchronisé avec le morceau en cours de lecture.
+
+## Étape 4 - Intégration du fond d'écran Butterchurn et de la page Shaders Lab
+
+**Prompt :**
+> « Maintenant j'aimerais procéder à l'étape 4 qui consiste à intégrer le fond butterchurn derrière toutes les pages du projet et implémenter la page qui permet de modifier les paramètres de ce fond (s'inspirer de la page html de test comme prévu).»
+
+### Rapport de ce que l'agent a fait
+
+1. **Intégration du fond d'écran persistant (`AppComponent` & `styles.css`) :**
+   - Intégration dans `app.html` d'un canvas WebGL plein écran fixé en arrière-plan (`.butterchurn-background-wrapper`, `position: fixed; inset: 0; z-index: -1`) tournant en continu derrière l'ensemble des pages de l'application (`/tracks`, `/studio`, `/profile`, etc.).
+   - Modernisation des styles de l'application en mode verre dépoli (*glassmorphism*) avec cartes semi-transparentes (`backdrop-filter: blur(12px)`) permettant d'admirer les visuels sans gêner la lisibilité des formulaires et des commandes audio.
+   - Liaison dynamique entre le moteur audio (`AudioEngineService`) et Butterchurn via `connectAudio()` : les visualisations réagissent en direct au rythme de la musique lue dans le lecteur persistant.
+
+2. **Création du service de rendu visuel (`src/app/shared/services/visualizer.service.ts`) :**
+   - Moteur WebGL Ping-Pong FBO (`ISFPipelineEngine`) compilant et exécutant la cascade de shaders à 60 FPS constants.
+   - Intégration des 5 shaders ISF natifs :
+     1. *Aberration Chromatique (RGB Shift)* : décalage spectral rouge/bleu selon un angle et une amplitude.
+     2. *Glitch & Scanline Wave* : distorsion sinusoïdale ondulatoire horizontale.
+     3. *Étalonnage Couleur & Teinte* : réglage de contraste, saturation et luminosité.
+     4. *Lueur Rayonnante (Bloom / Glow)* : diffusion lumineuse par échantillonnage en croix.
+     5. *Écran Rétro CRT & Vignette* : simulation de lignes de balayage cathodique et vignettage arcade.
+   - Gestion de la source vidéo : bascule à chaud entre le visualiseur Butterchurn et la **Webcam** en direct (`navigator.mediaDevices.getUserMedia`).
+   - Pilotage des presets MilkDrop (changement avec transition fluide, boutons Précédent, Aléatoire, Suivant).
+   - Réglage réactif de la visibilité et du curseur d'opacité du fond.
+
+3. **Création de la page Shaders Lab (`src/app/components/shaders-page/`) :**
+   - Nouvelle page dédiée sous la route `/shaders` (protégée par `authGuard`) et ajout du lien d'accès direct « Shaders Lab » dans la barre de navigation.
+   - Panneau de commande reprenant l'ensemble des fonctionnalités du banc d'essai :
+     - Sélecteur de source (Butterchurn Audio vs Webcam).
+     - Menu déroulant avec l'intégralité des presets MilkDrop.
+     - Interrupteurs Actif / Bypass et curseurs de réglage numérique pour chaque paramètre uniforme de chaque shader.
+     - **Injecteur de scripts ISF :** éditeur de texte intégré permettant de saisir ou coller un shader GLSL au format officiel ISF v2 avec parseur automatique d'en-tête JSON et ajout dynamique dans la boucle de rendu.
+
+---
+
+### Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+Placer le canvas Butterchurn dans le composant racine plutôt que dans une page isolée permet de conserver l'exécution lors de la navigation. Tout comme le lecteur audio ne se coupe pas, le fond continue sans interruption derrière l'interface. 
+Les shaders ISF permettent d'obtenir une vidéo sur le GPU, évitant tout ralentissement de l'interface Angular.
+Enfin, la page Shaders Lab permet à l'utilisateur de personnaliser l'ambiance visuelle selon ses envies. Il peut tester des effets, basculer sur sa webcam ou importer ses propres scripts de shaders sans recompiler l'application.
