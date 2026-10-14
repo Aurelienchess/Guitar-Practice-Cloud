@@ -2,6 +2,45 @@
   display: block;
 }
 
+/* Fond plein écran animé Butterchurn & ISF */
+.butterchurn-background-wrapper {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  background: #090e11;
+  transition: opacity 0.3s ease;
+}
+
+.butterchurn-background-wrapper.is-hidden {
+  display: none;
+}
+
+.background-render-canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.offscreen-source,
+.offscreen-video {
+  display: none;
+}
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(14, 30, 26, 0.88);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
 /* En-tête de marque */
 .brand {
   display: flex;

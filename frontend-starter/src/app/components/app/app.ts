@@ -1,7 +1,8 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, inject, OnInit, ViewChild } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../shared/services/auth.service';
 import { AudioPlayerService } from '../../shared/services/audio-player.service';
+import { VisualizerService } from '../../shared/services/visualizer.service';
 
 @Component({
   selector: 'app-root',
@@ -9,10 +10,25 @@ import { AudioPlayerService } from '../../shared/services/audio-player.service';
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, AfterViewInit {
   readonly auth = inject(AuthService);
   readonly audio = inject(AudioPlayerService);
+  readonly visualizer = inject(VisualizerService);
   private readonly router = inject(Router);
+
+  @ViewChild('butterchurnCanvas') butterchurnCanvasRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('outputCanvas') outputCanvasRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('webcamVideo') webcamVideoRef?: ElementRef<HTMLVideoElement>;
+
+  ngAfterViewInit(): void {
+    if (this.butterchurnCanvasRef && this.outputCanvasRef && this.webcamVideoRef) {
+      this.visualizer.init(
+        this.butterchurnCanvasRef.nativeElement,
+        this.outputCanvasRef.nativeElement,
+        this.webcamVideoRef.nativeElement,
+      );
+    }
+  }
 
 
   ngOnInit(): void {

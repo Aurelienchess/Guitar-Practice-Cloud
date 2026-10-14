@@ -309,6 +309,13 @@ export class AudioEngineService {
   }
 
   /**
+   * Retourne le nœud d'analyse audio master pour les visualiseurs (Butterchurn)
+   */
+  getMasterNode(): AudioNode | null {
+    return this.masterAnalyser || this.masterGainNode || null;
+  }
+
+  /**
    * Réglage de la balance panoramique (-1 = Tout à gauche, +1 = Tout à droite)
    */
   setPan(val: number): void {

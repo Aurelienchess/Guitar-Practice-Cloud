@@ -5,6 +5,7 @@ import { ProfilePageComponent } from './components/profile-page/profile-page';
 import { RegisterPageComponent } from './components/register-page/register-page';
 import { TracksPageComponent } from './components/tracks-page/tracks-page';
 import { StudioPageComponent } from './components/studio-page/studio-page';
+import { ShadersPageComponent } from './components/shaders-page/shaders-page';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'tracks' },
@@ -13,5 +14,6 @@ export const routes: Routes = [
   { path: 'profile', component: ProfilePageComponent, canActivate: [authGuard] },
   { path: 'tracks', component: TracksPageComponent, canActivate: [authGuard] },
   { path: 'studio', component: StudioPageComponent, canActivate: [authGuard] },
+  { path: 'shaders', component: ShadersPageComponent, canActivate: [authGuard] },
   { path: '**', redirectTo: 'tracks' },
 ];

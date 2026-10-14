@@ -1,0 +1,186 @@
+<div class="shaders-container">
+  <!-- En-tête du Laboratoire Visuel -->
+  <header class="shaders-header">
+    <div class="title-block">
+      <h1>LABORATOIRE SHADERS & VISUALISEUR</h1>
+      <p class="subtitle">Paramétrage du fond Butterchurn et de la chaîne de shaders ISF (GPU)</p>
+    </div>
+
+    <div class="header-status">
+      <span class="fps-badge">{{ visualizer.fps() }} FPS</span>
+      <button
+        type="button"
+        class="btn-bg-toggle"
+        [class.active]="visualizer.backgroundEnabled()"
+        (click)="toggleBackground()"
+      >
+        {{ visualizer.backgroundEnabled() ? '👁 FOND VISIBLE' : '🚫 FOND MASQUÉ' }}
+      </button>
+      <div class="opacity-control" title="Opacité du fond d'écran">
+        <label for="opacityInput">Opacité :</label>
+        <input
+          id="opacityInput"
+          type="range"
+          min="0.1"
+          max="1.0"
+          step="0.05"
+          [value]="visualizer.backgroundOpacity()"
+          (input)="onOpacityChange($event)"
+        />
+        <span class="opacity-val">{{ (visualizer.backgroundOpacity() * 100).toFixed(0) }}%</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="shaders-grid">
+    <!-- COLONNE GAUCHE : Source d'entrée, Presets MilkDrop & Ajout de scripts -->
+    <div class="left-col">
+      <!-- CARTE 1 : Source d'entrée vidéo -->
+      <section class="card config-card" aria-labelledby="card-source-title">
+        <h2 id="card-source-title">1. Source Vidéo d'Entrée</h2>
+        <p class="card-desc">Sélectionnez ce qui alimente l'entrée de la cascade de shaders :</p>
+
+        <div class="source-buttons">
+          <button
+            type="button"
+            class="btn-source"
+            [class.active]="!visualizer.isWebcamActive()"
+            (click)="visualizer.isWebcamActive() ? toggleWebcam() : null"
+          >
+            🎵 Butterchurn (Visualiseur Audio)
+          </button>
+          <button
+            type="button"
+            class="btn-source"
+            [class.active]="visualizer.isWebcamActive()"
+            (click)="toggleWebcam()"
+          >
+            📷 Webcam en direct
+          </button>
+        </div>
+
+        @if (!visualizer.isWebcamActive()) {
+          <div class="preset-controls-block">
+            <label for="milkdropPresetSelect" class="input-label">Preset Milkdrop actif :</label>
+            <select
+              id="milkdropPresetSelect"
+              class="preset-select"
+              [value]="visualizer.currentPreset()"
+              (change)="onPresetChange($event)"
+            >
+              @for (name of visualizer.presetNames(); track name) {
+                <option [value]="name">{{ name }}</option>
+              }
+            </select>
+
+            <div class="preset-btn-row">
+              <button type="button" class="btn-sub" (click)="visualizer.prevPreset()">◀ Précédent</button>
+              <button type="button" class="btn-sub" (click)="visualizer.randomPreset()">🎲 Aléatoire</button>
+              <button type="button" class="btn-sub" (click)="visualizer.nextPreset()">Suivant ▶</button>
+            </div>
+          </div>
+        } @else {
+          <div class="webcam-hint">
+            <span>📷 Flux webcam actif : la cascade de shaders est appliquée en direct sur votre caméra.</span>
+          </div>
+        }
+      </section>
+
+      <!-- CARTE 2 : Injecteur de Scripts ISF -->
+      <section class="card script-card" aria-labelledby="card-script-title">
+        <h2 id="card-script-title">3. Injecter un Script ISF (GLSL)</h2>
+        <p class="card-desc">
+          Collez ci-dessous le code d'un shader au format <strong>Interactive Shader Format (ISF v2)</strong>.
+          L'en-tête JSON sera analysé pour générer automatiquement les curseurs de réglage correspondants !
+        </p>
+
+        <textarea
+          class="code-editor"
+          rows="10"
+          [ngModel]="customShaderCode()"
+          (ngModelChange)="customShaderCode.set($event)"
+          placeholder="/*{ &quot;INPUTS&quot;: [...] }*/ void main() { ... }"
+        ></textarea>
+
+        @if (compileError()) {
+          <div class="alert alert-error">{{ compileError() }}</div>
+        }
+        @if (compileSuccess()) {
+          <div class="alert alert-success">{{ compileSuccess() }}</div>
+        }
+
+        <button type="button" class="btn-compile" (click)="addCustomShader()">
+          ➕ Compiler & Ajouter à la Chaîne
+        </button>
+      </section>
+    </div>
+
+    <!-- COLONNE DROITE : Chaîne des Shaders ISF -->
+    <div class="right-col">
+      <section class="card shaders-chain-card" aria-labelledby="card-chain-title">
+        <div class="chain-header">
+          <h2 id="card-chain-title">2. Chaîne de Shaders ISF (Cascade FBO Ping-Pong)</h2>
+          <span class="shaders-count">{{ visualizer.shaders().length }} Shaders</span>
+        </div>
+        <p class="card-desc">
+          L'image traverse successivement chaque shader actif. Les sorties de la passe $N$ sont réinjectées
+          dans la passe $N+1$ via des Framebuffers GPU :
+        </p>
+
+        <div class="shaders-list">
+          @for (shader of visualizer.shaders(); track shader.id; let idx = $index) {
+            <article class="shader-item" [class.is-disabled]="!shader.enabled">
+              <div class="shader-item-header">
+                <div class="shader-title-wrap">
+                  <span class="shader-index">#{{ idx + 1 }}</span>
+                  <strong class="shader-name">{{ shader.name }}</strong>
+                  @if (shader.meta.DESCRIPTION) {
+                    <small class="shader-desc">{{ shader.meta.DESCRIPTION }}</small>
+                  }
+                </div>
+
+                <button
+                  type="button"
+                  class="toggle-shader-btn"
+                  [class.active]="shader.enabled"
+                  (click)="toggleShader(shader.id)"
+                  [attr.aria-label]="(shader.enabled ? 'Désactiver ' : 'Activer ') + shader.name"
+                >
+                  {{ shader.enabled ? 'ACTIF' : 'BYPASS' }}
+                </button>
+              </div>
+
+              <!-- Curseurs dynamiques issus de l'en-tête JSON de l'ISF -->
+              @if (shader.meta.INPUTS && shader.meta.INPUTS.length > 0) {
+                <div class="shader-inputs-list">
+                  @for (inp of shader.meta.INPUTS; track inp.NAME) {
+                    @if (inp.TYPE === 'float') {
+                      <div class="param-row">
+                        <div class="param-labels">
+                          <span class="param-name">{{ inp.NAME }}</span>
+                          <span class="param-val">{{ shader.values[inp.NAME]?.toFixed(3) }}</span>
+                        </div>
+                        <input
+                          type="range"
+                          class="param-slider"
+                          [min]="inp.MIN !== undefined ? inp.MIN : 0"
+                          [max]="inp.MAX !== undefined ? inp.MAX : 1"
+                          [step]="((inp.MAX || 1) - (inp.MIN || 0)) / 100"
+                          [value]="shader.values[inp.NAME]"
+                          [disabled]="!shader.enabled"
+                          (input)="onParamChange(shader.id, inp.NAME, $event)"
+                          [attr.aria-label]="inp.NAME"
+                        />
+                      </div>
+                    }
+                  }
+                </div>
+              }
+            </article>
+          }
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+

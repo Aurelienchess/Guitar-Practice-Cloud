@@ -7,6 +7,7 @@
     @if (auth.token()) {
       <a routerLink="/tracks" routerLinkActive="active" class="nav-btn">Backing tracks</a>
       <a routerLink="/studio" routerLinkActive="active" class="nav-btn">Studio Mixage</a>
+      <a routerLink="/shaders" routerLinkActive="active" class="nav-btn">Shaders Lab</a>
       <a routerLink="/profile" routerLinkActive="active" class="nav-btn">Profil</a>
       @if (auth.currentUser(); as user) {
         <span class="user-greeting" title="Utilisateur connecté">
@@ -20,6 +21,18 @@
     }
   </nav>
 </header>
+
+<!-- Fond animé Butterchurn & Pipeline ISF Shaders plein écran derrière toutes les pages -->
+<div
+  class="butterchurn-background-wrapper"
+  [class.is-hidden]="!visualizer.backgroundEnabled()"
+  [style.opacity]="visualizer.backgroundOpacity()"
+  aria-hidden="true"
+>
+  <canvas #butterchurnCanvas class="offscreen-source"></canvas>
+  <canvas #outputCanvas class="background-render-canvas"></canvas>
+  <video #webcamVideo autoplay playsinline muted class="offscreen-video"></video>
+</div>
 
 <main [class.has-player]="audio.currentTrack()">
   <router-outlet />
