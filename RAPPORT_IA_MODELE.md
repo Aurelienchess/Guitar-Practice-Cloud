@@ -1343,3 +1343,135 @@ La séparation des canaux permet calculer indépendamment le signal gauche et dr
 Placer le canvas Butterchurn dans le composant racine plutôt que dans une page isolée permet de conserver l'exécution lors de la navigation. Tout comme le lecteur audio ne se coupe pas, le fond continue sans interruption derrière l'interface. 
 Les shaders ISF permettent d'obtenir une vidéo sur le GPU, évitant tout ralentissement de l'interface Angular.
 Enfin, la page Shaders Lab permet à l'utilisateur de personnaliser l'ambiance visuelle selon ses envies. Il peut tester des effets, basculer sur sa webcam ou importer ses propres scripts de shaders sans recompiler l'application.
+
+## Peaufinage de l'UI avec les compétences design (Design-Skills & Glassmorphism)
+
+**Prompt :**
+> « Quel design-skills me conseils tu pour améliorer l'UI de mon application ? J'imaginais du glassmorphism pour les boîtes et la nav pour bien mettre en valeur le fond tout en restant lisible»
+
+### Rapport des recommandations de l'agent (Design-Skills & Bonnes Pratiques UI/UX)
+
+Pour sublimer une application dotée d'un visualiseur d'arrière-plan en plein écran très dynamique et coloré (Butterchurn + shaders ISF), l'enjeu central est de **concilier spectacle visuel et lisibilité irréprochable**. 
+
+Voici les compétences et principes de design recommandés :
+
+#### 1. Maîtrise du Glassmorphism multi-couches (*Layered Frosted Glass*)
+- **Flou d'arrière-plan équilibré (`backdrop-filter`) :** Appliquer un flou entre `14px` et `18px` (`backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);`). Un flou trop faible laisse transparaître des motifs distrayants sous le texte ; un flou excessif (> 25px) alourdit le compositing GPU.
+- **Teinte profonde (*Tinted Dark Glass*) :** Plutôt qu'un blanc translucide pur ou un gris terne, employer un noir émeraude teinté (`rgba(11, 24, 20, 0.78)` pour les cartes et `rgba(8, 17, 14, 0.88)` pour la barre de navigation). Cela crée un contraste protecteur qui absorbe la lumière vive des shaders tout en laissant deviner les mouvements et impulsions rythmiques.
+- **Bordures biseautées et reflets spéculaires (*Rim Lighting*) :** Ajouter une bordure ultra-fine semi-transparente (`border: 1px solid rgba(255, 255, 255, 0.12);`) doublée d'un filet de lumière interne (`box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2), 0 8px 32px rgba(0, 0, 0, 0.45);`) pour donner l'impression de véritables plaques de verre acrylique taillées au laser.
+
+#### 2. Hiérarchie visuelle et contraste d'accessibilité (Norme WCAG)
+- **Typographie à fort contraste :** Titres nets en graisse `800` avec ombre portée diffuse (`text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);`), garantissant une lecture immédiate même lors d'éclairs stroboscopiques en arrière-plan.
+- **Palette chromatique inspirée des consoles de studio (DAW) :**
+  - **Couleur Primaire / Accent :** Vert néon / Cyan électrique (`#00f5b4`) pour les curseurs actifs, vu-mètres et boutons d'action principale.
+  - **Textes secondaires :** Vert d'eau doux (`#8dafa5` et `#a0c4ba`) pour les labels et sous-titres.
+  - **Alertes / Écrêtage :** Jaune ambre (`#fbc02d`) pour la pré-saturation et rouge carmin (`#ff3344`) pour le clipping et la suppression.
+
+#### 3. Navigation et lecteur en « îlots flottants » (*Floating Island UI*)
+- Détacher la barre de navigation supérieure et la barre de lecture audio inférieure des bords stricts de l'écran avec un espacement (`margin: 0.75rem 1.5rem`), des coins très arrondis (`border-radius: 16px`) et une ombre portée profonde.
+- Cet effet d'îlot flottant accentue la profondeur de champ 3D : l'interface semble léviter au-dessus du flux visuel Butterchurn.
+
+#### 4. Micro-interactions et affordance tactile
+- **Effet de halo au survol (*Glow Effect*) :** Intensification de la bordure et halo lumineux diffus (`box-shadow: 0 0 14px rgba(0, 245, 180, 0.35); border-color: #00f5b4;`) sur les boutons et cartes au survol de la souris.
+- **Retour physique d'enfoncement :** Légère compression élastique (`transform: scale(0.97);`) lors des clics pour simuler le toucher physique d'un commutateur de console audio.
+
+#### 5. Contrôle utilisateur de l'ambiance visuelle
+- Conserver le curseur d'opacité dynamique (de 10% à 100%) et l'interrupteur rapide « Masquer / Afficher » afin que l'utilisateur puisse adapter le contraste selon ses conditions d'éclairage ou son besoin de concentration.
+
+---
+
+### Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+L'utilisation du glassmorphism permet de faire ressortir le fond tout en laissant visible ce qui est écris. Maintenant que l'agent ia a bien en tête l'ui que je souhaite pour mon application je peux lui demander quelques ajouts supplémentaires.
+
+
+**Prompt :**
+> « Maintenant je veux que la tonte de vert soit maintenant une tonte de bleu, que le 5, 10 et 20 et sa flèche du menu déroulant soit centré au milieu de la boîte et que tu ajoutes directement plusieurs morceaux à la session Demo demo@example.com Membre depuis 2026-09-16 pour un plus large test »
+
+### Rapport de ce que l'agent a fait
+
+1. **Migration intégrale de la palette chromatique vers le bleu électrique & cyan néon :**
+   - **Styles globaux (`src/styles.css`) :**
+     - Remplacement de la teinte verte émeraude par un bleu ciel / cyan vibrant (`#0284c7`, `#00d2ff`, `#38bdf8`) pour tous les boutons d'action principale (`.btn-primary`), les bordures lumineuses et les champs de saisie en focus.
+     - Ajustement des cartes et de l'en-tête en verre dépoli teinté bleu nuit (`rgba(10, 24, 46, 0.85)` et `rgba(12, 32, 60, 0.9)`), assurant un contraste élevé et une absorption harmonieuse de la lumière des shaders.
+     - Personnalisation des listes déroulantes `mat-select` et `mat-option` avec reflets bleu ciel (`#e0f2fe` au survol et `#bae6fd` pour l'option sélectionnée).
+   - **Barre audio et navigation (`src/app/components/app/app.css`) :**
+     - Alignement des boutons de navigation, badges "En cours de lecture", bouton Play/Pause et barre de progression cliquable sur les tons cyan néon et bleu roi.
+   - **Bibliothèque de pistes (`src/app/components/tracks-page/tracks-page.css`) :**
+     - Halo de survol des cartes en bleu (`rgba(0, 210, 255, 0.35)`), surbrillance de la carte en lecture active en bleu ciel, boutons de lecture et jauges d'upload en bleu cyan.
+   - **Composants Studio et Shaders (`studio-page.css`, `shaders-page.css`, `knob.component.css`, `vu-meter.component.css`) :**
+     - Potentiomètres rotatifs (`KnobComponent`) avec arc de valeur luminescent `#00d2ff`.
+     - Vu-mètres stéréo (`VuMeterComponent`) avec châssis rack bleu nuit `#0a162a` et graduation RMS dégradée de cyan néon vers bleu cobalt.
+     - Oscilloscope temps réel et analyseur spectral sur `<canvas>` (`studio-page.ts`) redessinés en cyan électrique (`#00d2ff`) avec gradient spectral cyan vers bleu profond.
+     - Panneau Shaders Lab avec commutateurs de chaîne ISF et curseurs uniformes accordés sur la nouvelle charte.
+
+2. **Centrage géométrique du sélecteur de pagination Angular Material (`mat-paginator`) :**
+   - Les éléments internes du composant Angular Material (`.mat-mdc-paginator-page-size-select`) présentaient un alignement textuel par défaut avec des marges internes asymétriques héritées de `mat-form-field-infix`.
+   - Application d'un alignement Flexbox complet dans `styles.css` :
+     ```css
+     .mat-mdc-paginator .mat-mdc-paginator-page-size-select .mat-mdc-select-trigger {
+       display: flex !important;
+       align-items: center !important;
+       justify-content: center !important;
+       text-align: center !important;
+     }
+     .mat-mdc-paginator .mat-mdc-paginator-page-size-select .mat-mdc-select-value {
+       display: inline-flex !important;
+       align-items: center !important;
+       justify-content: center !important;
+     }
+     .mat-mdc-paginator .mat-mdc-paginator-page-size-select .mat-mdc-select-arrow-wrapper {
+       display: inline-flex !important;
+       align-items: center !important;
+       margin-left: 6px !important;
+     }
+     ```
+   - Résultat : les valeurs numériques "5", "10", "20" ainsi que la flèche déroulante sont parfaitement centrées horizontalement et verticalement au cœur de la boîte de sélection.
+
+3. **Peuplement de la base de données MongoDB pour le compte Demo :**
+   - Ciblage direct du compte utilisateur `Demo` (`demo@example.com`, `_id: 6aaa5fd9ffe1d0df7a61991f`, membre depuis le 2026-09-16).
+   - Insertion de 14 nouveaux morceaux de guitare d'accompagnement (Backing Tracks Funk, Blues, Jazz, Rock, Metal, Neo-Soul, Bossa Nova, etc.), portant la bibliothèque du compte à un total de **22 pistes audio réelles et jouables**.
+   - Chaque entrée enregistrée en base est strictement reliée à un fichier physique MP3 existant dans le répertoire `backend/data/uploads/` avec ses métadonnées ID3 (`artist`, `album`, `title`, `mimeType: audio/mpeg`).
+   - Cette volumétrie permet de tester la pagination dans des conditions réelles sur 5 pages (en affichage 5 par 5) et 3 pages (en affichage 10 par 10).
+
+---
+
+### Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+Je voulais, en passant à un thème bleu plutôt que vert, renforcer l'effet de glassmorphism. La correction de l'affichage de la pagination était aussi nécessaire. Enfin, il était nécessaire d'injecter de nombreux morceaux directement dans la session de démonstration pour pouvoir tester plus facilement sans avoir à uploader manuellement chaque piste une par une.
+
+## Personnalisation des pochettes d'albums et intégration du toggle Dark / Light mode
+
+**Prompt :**
+> « J'aimerais maintenant terminer par quelques ajouts, rajoute la possibilité de rajouter une photo au morceaux (en plus de la détection d'image automatique) et rajoute un dark mode / light mode sous forme de toogle dans la nav bar à gauche du nom de profil »
+
+### Rapport de ce que l'agent a fait
+
+1. **Ajout et personnalisation des photos de couverture des morceaux :**
+   - **Backend (`backend/src/app.js`) :**
+     - Modification de la route d'upload `POST /api/tracks` : prise en compte du champ `coverImage` optionnel envoyé par le client. Si une image personnalisée est fournie, elle est prioritaire ; si elle est omise, le serveur extrait automatiquement l'image intégrée dans les tags ID3 du fichier audio via `music-metadata`.
+     - Création d'une nouvelle route dédiée `PUT /api/tracks/:id/cover` protégée par authentification JWT : permet à un utilisateur de modifier, remplacer ou ajouter une photo de couverture sur n'importe quel morceau déjà existant de sa bibliothèque.
+     - Ajout de tests de contrat et de sécurité dans `backend/test/api.test.js` validant le rejet `401 Unauthorized` sans token et le retour `404 Not Found` pour une ressource inexistante.
+   - **Service Frontend (`src/app/shared/services/track.service.ts`) :**
+     - Extension de `uploadWithProgress(file, title, coverImage?)` pour transmettre l'image personnalisée encodée en Data URL base64 dans le corps de la requête multipart.
+     - Implémentation de la méthode `updateCover(id, coverImage)` effectuant l'appel `PUT /api/tracks/:id/cover`.
+     - Rédaction du test unitaire correspondant dans `track.service.spec.ts` validant le contrat HTTP.
+   - **Interface Utilisateur (`tracks-page.html`, `tracks-page.ts`, `tracks-page.css`) :**
+     - Formulaire d'upload : ajout d'un champ de sélection de photo avec prévisualisation immédiate en miniature (`.cover-preview-row`) et bouton de retrait rapide.
+     - Cartes de morceaux de la bibliothèque : ajout d'une surcouche interactive au survol (`.cover-edit-overlay` avec icône 📷 et libellé "Photo") permettant de cliquer directement sur la pochette pour sélectionner une nouvelle image depuis son disque et mettre à jour le morceau sans rechargement.
+
+2. **Système de thème Dark Mode / Light Mode avec Toggle dans la barre de navigation :**
+   - **Service de thème (`src/app/shared/services/theme.service.ts`) :**
+     - Service racine réactif exploitant les Signals Angular (`theme = signal<'dark' | 'light'>`) avec persistance automatique du choix utilisateur dans le `localStorage` (`gpc_theme`).
+     - Application dynamique et fluide de la classe CSS `.light-theme` sur `document.documentElement` et `document.body`.
+   - **Composant et template de navigation (`app.html`, `app.ts`, `app.css`) :**
+     - Intégration d'un commutateur visuel ergonomique (`.theme-toggle-btn`) positionné dans la barre de navigation directement **à gauche du nom de l'utilisateur connecté** (et également accessible aux visiteurs non connectés).
+     - Rendu sous forme de pilule animée avec translation du curseur (`transform: translateX(22px)`) et bascule des icônes Soleil (☀️) et Lune (🌙).
+   - **Déclinaison des styles Light Mode (`src/styles.css`) :**
+     - Création d'une charte graphique lumineuse conservant l'effet de verre dépoli (*glassmorphism*) : en-tête et cartes en blanc translucide perlé (`rgba(255, 255, 255, 0.92)`), typographies bleu marine à fort contraste (`#0c2d48`, `#0f172a`), boutons aux reflets bleu ciel et dégradé subtil sur le bandeau Hero.
+     - Adaptation complète des pages Studio de mixage et Shaders Lab en mode clair pour garantir une lisibilité irréprochable des curseurs, potentiomètres et analyseurs spectraux sous n'importe quelle luminosité ambiante.
+
+---
+
+### Ce que j'en ai compris, pourquoi j'ai voulu faire ça
+Il est désormais possible de rajouter des images aux morceaux qui n'en possèdent pas (en plus de la détection automatique des tags ID3). Il est possible de le faire pour un nouveau morceau ou un morceau existant.
+Le bouton toggle Dark/Light mode placé directement à gauche du profil permet à l'utilisateur d'adapter l'ambiance visuelle. La sauvegarde de la préférence dans le localStorage permet de conserver son choix lors des futures visites.
+

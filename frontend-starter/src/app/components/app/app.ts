@@ -3,6 +3,7 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 import { AuthService } from '../../shared/services/auth.service';
 import { AudioPlayerService } from '../../shared/services/audio-player.service';
 import { VisualizerService } from '../../shared/services/visualizer.service';
+import { ThemeService } from '../../shared/services/theme.service';
 
 @Component({
   selector: 'app-root',
@@ -14,6 +15,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   readonly auth = inject(AuthService);
   readonly audio = inject(AudioPlayerService);
   readonly visualizer = inject(VisualizerService);
+  readonly theme = inject(ThemeService);
   private readonly router = inject(Router);
 
   @ViewChild('butterchurnCanvas') butterchurnCanvasRef?: ElementRef<HTMLCanvasElement>;

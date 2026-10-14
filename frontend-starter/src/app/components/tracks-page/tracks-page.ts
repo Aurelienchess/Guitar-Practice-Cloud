@@ -63,6 +63,9 @@ export class TracksPageComponent implements AfterViewInit {
   readonly audioUrl = this.audioPlayer.audioUrl;
   readonly isPlaying = this.audioPlayer.isPlaying;
   readonly trackToDelete = signal<Track | null>(null);
+  readonly coverPreview = signal<string>('');
+  readonly processingCover = signal(false);
+  readonly updatingCoverId = signal<string | null>(null);
 
   readonly title = new FormControl('', { nonNullable: true });
   readonly searchFilter = new FormControl('', { nonNullable: true });
@@ -155,6 +158,128 @@ export class TracksPageComponent implements AfterViewInit {
     this.file = selectedFile;
   }
 
+  /** Redimensionne et compresse l'image (max 800x800 JPEG 85%) pour un transfert ultra-rapide et fiable. */
+  private optimizeImage(file: File, maxWidth = 800, maxHeight = 800, quality = 0.85): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Erreur de lecture du fichier image'));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error("Format d'image non lisible"));
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(reader.result as string);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          const optimized = canvas.toDataURL('image/jpeg', quality);
+          resolve(optimized);
+        };
+        img.src = reader.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async chooseCover(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+      this.coverPreview.set('');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      this.snackBar.open('Veuillez sélectionner un fichier image valide (JPG, PNG, WebP).', 'Fermer', {
+        duration: 3500,
+        panelClass: ['error-snackbar'],
+      });
+      input.value = '';
+      this.coverPreview.set('');
+      return;
+    }
+
+    this.processingCover.set(true);
+    try {
+      const optimized = await this.optimizeImage(file);
+      this.coverPreview.set(optimized);
+    } catch {
+      this.snackBar.open("Impossible de traiter cette image.", 'Fermer', {
+        duration: 3500,
+        panelClass: ['error-snackbar'],
+      });
+      input.value = '';
+      this.coverPreview.set('');
+    } finally {
+      this.processingCover.set(false);
+    }
+  }
+
+  clearCover(coverInput?: HTMLInputElement): void {
+    this.coverPreview.set('');
+    if (coverInput) {
+      coverInput.value = '';
+    }
+  }
+
+  async changeTrackCover(track: Track, event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      this.snackBar.open('Format image non valide (JPG, PNG, WebP acceptés).', 'Fermer', {
+        duration: 3500,
+        panelClass: ['error-snackbar'],
+      });
+      input.value = '';
+      return;
+    }
+
+    this.updatingCoverId.set(track.id);
+    try {
+      const optimized = await this.optimizeImage(file);
+      this.service.updateCover(track.id, optimized).subscribe({
+        next: (updatedTrack) => {
+          this.updatingCoverId.set(null);
+          this.tracks.update((items) =>
+            items.map((t) => (t.id === track.id ? { ...t, coverImage: updatedTrack.coverImage } : t)),
+          );
+          this.snackBar.open(`Photo de couverture mise à jour pour « ${track.title} » !`, 'Fermer', {
+            duration: 3500,
+            panelClass: ['success-snackbar'],
+          });
+          input.value = '';
+        },
+        error: (err: { error?: { message?: string } }) => {
+          this.updatingCoverId.set(null);
+          this.snackBar.open(err.error?.message ?? 'Échec de la mise à jour de la photo.', 'Fermer', {
+            duration: 4000,
+            panelClass: ['error-snackbar'],
+          });
+          input.value = '';
+        },
+      });
+    } catch {
+      this.updatingCoverId.set(null);
+      this.snackBar.open("Erreur lors de la lecture de l'image.", 'Fermer', {
+        duration: 3500,
+        panelClass: ['error-snackbar'],
+      });
+      input.value = '';
+    }
+  }
+
   load(): void {
     this.loading.set(true);
     this.error.set('');
@@ -178,7 +303,7 @@ export class TracksPageComponent implements AfterViewInit {
     this.load();
   }
 
-  upload(fileInput: HTMLInputElement): void {
+  upload(fileInput: HTMLInputElement, coverInput?: HTMLInputElement): void {
     if (!this.file || this.uploading()) return;
 
     this.uploading.set(true);
@@ -188,8 +313,9 @@ export class TracksPageComponent implements AfterViewInit {
     this.error.set('');
 
     const trackTitle = this.title.value.trim() || this.file.name;
+    const customCover = this.coverPreview() || undefined;
 
-    this.service.uploadWithProgress(this.file, trackTitle).subscribe({
+    this.service.uploadWithProgress(this.file, trackTitle, customCover).subscribe({
       next: (event) => {
         if (event.type === HttpEventType.UploadProgress && event.total) {
           const percent = Math.round((100 * event.loaded) / event.total);
@@ -201,7 +327,11 @@ export class TracksPageComponent implements AfterViewInit {
           this.uploadSuccess.set(`Piste « ${track.title} » importée avec succès !`);
           this.title.setValue('');
           this.file = undefined;
+          this.coverPreview.set('');
           fileInput.value = '';
+          if (coverInput) {
+            coverInput.value = '';
+          }
           this.page.set(1);
           this.load();
         }

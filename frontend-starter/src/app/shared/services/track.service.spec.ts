@@ -67,4 +67,16 @@ describe('TrackService', () => {
 
     req.flush(null, { status: 204, statusText: 'No Content' });
   });
+
+  it('updateCover() doit appeler PUT /api/tracks/:id/cover avec le corps coverImage', () => {
+    service.updateCover('track-123', 'data:image/png;base64,mock').subscribe((track) => {
+      expect(track.coverImage).toBe('data:image/png;base64,mock');
+    });
+
+    const req = httpMock.expectOne('/api/tracks/track-123/cover');
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ coverImage: 'data:image/png;base64,mock' });
+
+    req.flush({ id: 'track-123', title: 'Test', coverImage: 'data:image/png;base64,mock' });
+  });
 });

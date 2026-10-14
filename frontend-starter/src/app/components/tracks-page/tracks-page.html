@@ -11,6 +11,20 @@
       <label>Titre<input [formControl]="title" [disabled]="uploading()" placeholder="Titre du morceau (ou extrait auto des tags)" /></label>
       <label>Fichier audio (max 25 Mo)<input #fileInput type="file" accept="audio/*" [disabled]="uploading()" (change)="choose($event)" /></label>
       
+      <label>Photo de couverture personnalisée (optionnel)
+        <input #coverInput type="file" accept="image/*" [disabled]="uploading()" (change)="chooseCover($event)" />
+      </label>
+
+      @if (coverPreview()) {
+        <div class="cover-preview-row">
+          <img [src]="coverPreview()" alt="Aperçu couverture" class="preview-thumbnail" />
+          <div class="preview-meta">
+            <small>Photo personnalisée prête</small>
+            <button type="button" class="btn-remove-cover" (click)="clearCover(coverInput)">✕ Retirer</button>
+          </div>
+        </div>
+      }
+      
       @if (uploading()) {
         <div class="progress-box">
           <div class="progress-bar" [style.width.%]="uploadProgress()"></div>
@@ -22,9 +36,11 @@
         <p class="success">{{ uploadSuccess() }}</p>
       }
 
-      <button type="button" (click)="upload(fileInput)" [disabled]="!file || uploading()">
+      <button type="button" (click)="upload(fileInput, coverInput)" [disabled]="!file || uploading() || processingCover()">
         @if (uploading()) {
           Envoi en cours…
+        } @else if (processingCover()) {
+          Optimisation de l'image…
         } @else {
           Envoyer
         }
@@ -56,12 +72,32 @@
 
       @for (track of filteredTracks(); track track.id) {
         <div class="track-card" [class.playing]="currentTrack()?.id === track.id">
-          <div class="track-cover">
+          <div
+            class="track-cover"
+            (click)="itemCoverInput.click()"
+            [title]="'Cliquer pour changer la photo de « ' + track.title + ' »'"
+            role="button"
+            tabindex="0"
+            (keydown.enter)="itemCoverInput.click()"
+          >
             @if (track.coverImage) {
               <img [src]="track.coverImage" [alt]="'Pochette ' + track.title" />
             } @else {
               <div class="default-cover">🎵</div>
             }
+            <div class="cover-edit-overlay">
+              <span class="cover-edit-icon">{{ updatingCoverId() === track.id ? '…' : '📷' }}</span>
+              <span class="cover-edit-text">{{ updatingCoverId() === track.id ? 'Envoi…' : 'Photo' }}</span>
+            </div>
+            <input
+              #itemCoverInput
+              type="file"
+              accept="image/*"
+              class="hidden-file-input"
+              [disabled]="updatingCoverId() === track.id"
+              (click)="$event.stopPropagation()"
+              (change)="changeTrackCover(track, $event)"
+            />
           </div>
 
           <div class="track-info">

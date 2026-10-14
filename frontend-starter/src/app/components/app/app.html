@@ -9,6 +9,22 @@
       <a routerLink="/studio" routerLinkActive="active" class="nav-btn">Studio Mixage</a>
       <a routerLink="/shaders" routerLinkActive="active" class="nav-btn">Shaders Lab</a>
       <a routerLink="/profile" routerLinkActive="active" class="nav-btn">Profil</a>
+
+      <!-- Toggle Dark / Light mode à gauche du nom de profil -->
+      <button
+        type="button"
+        class="theme-toggle-btn"
+        (click)="theme.toggleTheme()"
+        [attr.aria-label]="theme.isLight() ? 'Activer le mode sombre' : 'Activer le mode clair'"
+        [title]="theme.isLight() ? 'Passer en mode sombre (Dark)' : 'Passer en mode clair (Light)'"
+      >
+        <span class="theme-toggle-pill" [class.is-light]="theme.isLight()">
+          <span class="theme-toggle-thumb">
+            {{ theme.isLight() ? '☀️' : '🌙' }}
+          </span>
+        </span>
+      </button>
+
       @if (auth.currentUser(); as user) {
         <span class="user-greeting" title="Utilisateur connecté">
           👤 <strong>{{ user.name }}</strong>
@@ -16,6 +32,21 @@
       }
       <button type="button" class="btn-logout" (click)="logout()">Déconnexion</button>
     } @else {
+      <!-- Toggle Dark / Light mode -->
+      <button
+        type="button"
+        class="theme-toggle-btn"
+        (click)="theme.toggleTheme()"
+        [attr.aria-label]="theme.isLight() ? 'Activer le mode sombre' : 'Activer le mode clair'"
+        [title]="theme.isLight() ? 'Passer en mode sombre (Dark)' : 'Passer en mode clair (Light)'"
+      >
+        <span class="theme-toggle-pill" [class.is-light]="theme.isLight()">
+          <span class="theme-toggle-thumb">
+            {{ theme.isLight() ? '☀️' : '🌙' }}
+          </span>
+        </span>
+      </button>
+
       <a routerLink="/login" routerLinkActive="active" class="nav-btn">Connexion</a>
       <a routerLink="/register" routerLinkActive="active" class="nav-btn">Créer un compte</a>
     }

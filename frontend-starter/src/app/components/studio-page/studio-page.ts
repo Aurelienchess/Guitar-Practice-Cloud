@@ -206,7 +206,7 @@ export class StudioPageComponent implements AfterViewInit, OnDestroy {
   }
 
   private drawOscilloscopeGrid(ctx: CanvasRenderingContext2D, w: number, h: number): void {
-    ctx.strokeStyle = 'rgba(0, 245, 180, 0.07)';
+    ctx.strokeStyle = 'rgba(0, 210, 255, 0.08)';
     ctx.lineWidth = 1;
 
     // Lignes verticales
@@ -226,7 +226,7 @@ export class StudioPageComponent implements AfterViewInit, OnDestroy {
     }
 
     // Ligne centrale horizontale
-    ctx.strokeStyle = 'rgba(0, 245, 180, 0.2)';
+    ctx.strokeStyle = 'rgba(0, 210, 255, 0.25)';
     ctx.beginPath();
     ctx.moveTo(0, h / 2);
     ctx.lineTo(w, h / 2);
@@ -237,9 +237,9 @@ export class StudioPageComponent implements AfterViewInit, OnDestroy {
     this.audioEngine.getWaveformData(this.timeBuffer);
 
     ctx.lineWidth = 2.5;
-    ctx.strokeStyle = '#00f5b4';
+    ctx.strokeStyle = '#00d2ff';
     ctx.shadowBlur = 10;
-    ctx.shadowColor = '#00f5b4';
+    ctx.shadowColor = '#00d2ff';
 
     ctx.beginPath();
     const sliceWidth = w / this.timeBuffer.length;
@@ -276,9 +276,9 @@ export class StudioPageComponent implements AfterViewInit, OnDestroy {
       const y = h - barHeight;
 
       const grad = ctx.createLinearGradient(0, y, 0, h);
-      grad.addColorStop(0, '#00f5b4');
-      grad.addColorStop(0.7, '#009d75');
-      grad.addColorStop(1, '#0c3529');
+      grad.addColorStop(0, '#00d2ff');
+      grad.addColorStop(0.7, '#0284c7');
+      grad.addColorStop(1, '#082040');
 
       ctx.fillStyle = grad;
       ctx.fillRect(x, y, barWidth, barHeight);

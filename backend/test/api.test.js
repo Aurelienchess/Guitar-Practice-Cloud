@@ -266,3 +266,43 @@ test("journalisation : purge automatique des logs de plus de 6 mois", async () =
   assert.ok(!fs.existsSync(oldLogPath), "Le fichier vieux ne doit plus exister");
 });
 
+test("sécurité : mise à jour photo de couverture PUT /api/tracks/:id/cover", async () => {
+  const fakeId = new mongoose.Types.ObjectId().toString();
+  // 1. Sans token -> 401
+  const rNoAuth = await fetch(`${base}/api/tracks/${fakeId}/cover`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ coverImage: "data:image/png;base64,AAAA" }),
+  });
+  assert.equal(rNoAuth.status, 401);
+
+  // 2. Avec token mais piste inconnue -> 404
+  const fakeToken = jwt.sign(
+    { sub: new mongoose.Types.ObjectId().toString(), email: "user@test.com" },
+    SECRET,
+    { expiresIn: "1h" },
+  );
+  const rNotFound = await fetch(`${base}/api/tracks/${fakeId}/cover`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${fakeToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ coverImage: "data:image/png;base64,AAAA" }),
+  });
+  assert.equal(rNotFound.status, 404);
+
+  // 3. Image volumineuse (> 100 Ko) ne déclenche plus l'erreur 413 Payload Too Large
+  const largeCover = "data:image/png;base64," + "A".repeat(250 * 1024); // 250 Ko
+  const rLarge = await fetch(`${base}/api/tracks/${fakeId}/cover`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${fakeToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ coverImage: largeCover }),
+  });
+  // Ne doit PAS renvoyer 413 Payload Too Large, mais 404 car fakeId n'existe pas
+  assert.equal(rLarge.status, 404);
+});
+

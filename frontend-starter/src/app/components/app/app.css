@@ -35,10 +35,11 @@ header {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(14, 30, 26, 0.88);
+  background: var(--header-bg);
   backdrop-filter: blur(14px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  border-bottom: 1px solid var(--header-border);
+  box-shadow: var(--card-shadow);
+  transition: background 0.25s ease, border-color 0.25s ease;
 }
 
 /* En-tête de marque */
@@ -52,13 +53,13 @@ header {
   font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: -0.01em;
-  color: #ffffff;
+  color: var(--header-text);
 }
 
 .brand-subtitle {
   font-size: 0.8rem;
-  color: #cbe3db;
-  font-weight: 400;
+  color: var(--header-subtext);
+  font-weight: 500;
 }
 
 /* Navigation */
@@ -74,7 +75,7 @@ nav {
   display: inline-flex;
   align-items: center;
   padding: 0.45rem 0.9rem;
-  background-color: #1b4e41;
+  background-color: #1a426e;
   color: #ffffff !important;
   text-decoration: none;
   font-weight: 500;
@@ -86,22 +87,79 @@ nav {
 }
 
 .nav-btn:hover {
-  background-color: #2a7260;
-  border-color: #72cfb7;
+  background-color: #245892;
+  border-color: #60a5fa;
   color: #ffffff !important;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
 }
 
 .nav-btn:active {
-  background-color: #0e3027;
-  border-color: #4da690;
+  background-color: #123052;
+  border-color: #3b82f6;
   transform: scale(0.97);
 }
 
 .nav-btn.active {
-  background-color: #246554;
-  border-color: #8cead2;
+  background-color: #1e4f85;
+  border-color: #93c5fd;
   font-weight: 600;
+}
+
+/* Bouton switch Toggle Dark / Light mode */
+.theme-toggle-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+}
+
+.theme-toggle-pill {
+  width: 50px;
+  height: 28px;
+  background: rgba(15, 30, 54, 0.85);
+  border: 1px solid rgba(0, 210, 255, 0.4);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  padding: 2px 3px;
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.theme-toggle-pill:hover {
+  border-color: #00d2ff;
+  box-shadow: 0 0 10px rgba(0, 210, 255, 0.35);
+}
+
+.theme-toggle-pill.is-light {
+  background: #bae6fd;
+  border-color: #0284c7;
+  box-shadow: inset 0 2px 4px rgba(2, 132, 199, 0.2), 0 0 8px rgba(2, 132, 199, 0.3);
+}
+
+.theme-toggle-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #0284c7;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.theme-toggle-pill.is-light .theme-toggle-thumb {
+  transform: translateX(22px);
+  background: #ffffff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
 }
 
 /* Nom de l'utilisateur connecté dans le header */
@@ -110,15 +168,15 @@ nav {
   align-items: center;
   gap: 0.35rem;
   padding: 0.4rem 0.75rem;
-  background-color: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background-color: var(--sub-btn-bg);
+  border: 1px solid var(--sub-btn-border);
   border-radius: 6px;
-  color: #e5f5f0;
+  color: var(--header-text);
   font-size: 0.88rem;
 }
 
 .user-greeting strong {
-  color: #ffffff;
+  color: var(--header-text);
   font-weight: 600;
 }
 
@@ -165,17 +223,18 @@ main.has-player {
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(14, 30, 26, 0.95);
-  backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(114, 207, 183, 0.35);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.45);
+  background: var(--audio-bar-bg);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid var(--audio-bar-border);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.35);
   padding: 10px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
   z-index: 1000;
-  color: #ffffff;
+  color: var(--audio-bar-text);
+  transition: background 0.25s ease, border-color 0.25s ease;
 }
 
 .track-info {
@@ -189,13 +248,13 @@ main.has-player {
 .now-playing-badge {
   font-size: 0.65rem;
   font-weight: 700;
-  color: #72cfb7;
+  color: var(--text-accent);
   letter-spacing: 0.5px;
 }
 
 .track-title {
   font-size: 0.95rem;
-  color: #ffffff;
+  color: var(--audio-bar-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -203,7 +262,7 @@ main.has-player {
 
 .track-artist {
   font-size: 0.8rem;
-  color: #a8cfc4;
+  color: var(--audio-bar-subtext);
 }
 
 .playback-controls {
@@ -215,8 +274,8 @@ main.has-player {
 }
 
 .play-toggle-btn {
-  background: #19b28b;
-  color: #0c1e19;
+  background: #0284c7;
+  color: #ffffff;
   border: none;
   width: 38px;
   height: 38px;
@@ -230,7 +289,7 @@ main.has-player {
 }
 
 .play-toggle-btn:hover {
-  background: #2ee6b5;
+  background: #0ea5e9;
   transform: scale(1.06);
 }
 
@@ -240,14 +299,14 @@ main.has-player {
 
 .time-label {
   font-size: 0.8rem;
-  color: #a8cfc4;
+  color: #93c5fd;
   font-variant-numeric: tabular-nums;
   min-width: 35px;
 }
 
 .seek-bar {
   flex: 1;
-  accent-color: #19b28b;
+  accent-color: #0284c7;
   cursor: pointer;
   height: 5px;
   border-radius: 3px;

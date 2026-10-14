@@ -77,6 +77,8 @@ En plus des exigences obligatoires des trois sujets de TP, plusieurs fonctionnal
 - Fenêtre modale personnalisée pour la confirmation de suppression : Remplacement de l'alerte par une modale avec rappel du titre du morceau ciblé et protection contre les doubles clics.
 - Refonte visuelle du Header, des bouton et du menu déroulant 
 - Affichage du nom de l'utilisateur connecté avec restauration automatique de session au rafraîchissement de la page.
+- Système complet de Thème Dark Mode / Light Mode : Commutateur réactif dans l'en-tête adaptant instantanément l'ensemble des boîtes, cartes, fenêtres modales, racks de mixage, lab shaders et barres audio de toutes les pages (variables CSS globales et persistance `localStorage`).
+- Personnalisation des photos de couverture : Ajout d'une photo personnalisée à l'upload ou mise à jour directe en un clic sur la pochette (`PUT /api/tracks/:id/cover`).
 
 ### 3. Renforcement de la Sécurité backend & frontend
 - Protection anti-brute force par limitation de débit : Middleware personnalisé limitant les tentatives.

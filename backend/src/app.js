@@ -144,7 +144,10 @@ const storage = multer.diskStorage({
  */
 const upload = multer({
   storage,
-  limits: { fileSize: MAX_FILE_SIZE },
+  limits: {
+    fileSize: MAX_FILE_SIZE,
+    fieldSize: 25 * 1024 * 1024, // 25 Mo pour les données texte (ex: photos base64)
+  },
   fileFilter: (_request, file, callback) => {
     // Seuls les types MIME audio demandés dans le sujet sont acceptés.
     if (allowed.has(file.mimetype)) {
@@ -264,9 +267,9 @@ export function createApp() {
   app.use(cors());
 
   // Express ne gère pas nativement le JSON : ce middleware transforme le corps JSON en objet JavaScript 
-  // accessible via req.body.
-  // Il est placé avant les routes pour que toutes les requêtes JSON soient traitées.
-  app.use(express.json());
+  // accessible via req.body. Le plafond est relevé à 25 Mo pour accueillir les photos de couverture haute fidélité.
+  app.use(express.json({ limit: "25mb" }));
+  app.use(express.urlencoded({ limit: "25mb", extended: true }));
 
   /** Endpoint public utilisé pour vérifier que l'API répond. */
   app.get("/api/health", (_req, res) => {
@@ -537,7 +540,17 @@ export function createApp() {
         const uploadedPath = path.join(UPLOADS, req.file.filename);
         let artist = "";
         let album = "";
-        let coverImage = "";
+
+        // Prise en compte de la photo personnalisée fournie par l'utilisateur (priorité absolue sur les tags ID3)
+        const manualCover =
+          typeof req.body?.coverImage === "string" && req.body.coverImage.trim().length > 0
+            ? req.body.coverImage.trim()
+            : "";
+        let coverImage = manualCover;
+
+        if (manualCover) {
+          console.log(`[tracks] Photo personnalisée utilisateur détectée (${manualCover.length} caractères) -> priorité sur ID3`);
+        }
 
         // Extraction automatique des métadonnées ID3 via music-metadata
         try {
@@ -545,12 +558,16 @@ export function createApp() {
           artist = metadata.common.artist || "";
           album = metadata.common.album || "";
 
-          // Extraction de l'image de couverture si présente dans les tags ID3
-          const picture = metadata.common.picture?.[0];
-          if (picture) {
-            const base64 = Buffer.from(picture.data).toString("base64");
-            coverImage = `data:${picture.format};base64,${base64}`;
-            console.log(`[tracks] Image de couverture extraite (${picture.format})`);
+          // La pochette ID3 n'est extraite QUE si l'utilisateur n'a PAS fourni de photo personnalisée
+          if (!coverImage) {
+            const picture = metadata.common.picture?.[0];
+            if (picture) {
+              const base64 = Buffer.from(picture.data).toString("base64");
+              coverImage = `data:${picture.format};base64,${base64}`;
+              console.log(`[tracks] Aucune photo manuelle fournie : pochette extraite des tags ID3 (${picture.format})`);
+            }
+          } else {
+            console.log("[tracks] Photo manuelle déjà présente : pochette des tags ID3 ignorée");
           }
         } catch (metaErr) {
           console.warn("[tracks] Impossible d'extraire les tags ID3 :", metaErr.message);
@@ -591,6 +608,44 @@ export function createApp() {
       }
     },
   );
+
+  /**
+   * Ajoute ou met à jour la photo de couverture d'un morceau existant.
+   * Accepte un Data URL base64 ou une URL dans le corps JSON : { coverImage: string }.
+   */
+  app.put("/api/tracks/:id/cover", auth, async (req, res, next) => {
+    try {
+      const coverImage = typeof req.body?.coverImage === "string" ? req.body.coverImage.trim() : "";
+
+      if (!coverImage) {
+        return res.status(400).json({ message: "Photo de couverture requise" });
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(404).json({ message: "Piste introuvable" });
+      }
+
+      const track = await Track.findById(req.params.id);
+      if (!track) {
+        console.warn(`[tracks] Mise à jour photo impossible, piste introuvable : ${req.params.id}`);
+        return res.status(404).json({ message: "Piste introuvable" });
+      }
+
+      if (track.ownerId.toString() !== req.auth.sub.toString()) {
+        console.warn(`[tracks] Tentative non autorisée de mise à jour photo par ${req.auth.sub} sur piste ${track.id}`);
+        return res.status(403).json({ message: "Action non autorisée sur cette piste" });
+      }
+
+      track.coverImage = coverImage;
+      await track.save();
+
+      console.log(`[tracks] Photo de couverture mise à jour pour la piste ${track.id}`);
+      res.json(track.toPublic());
+    } catch (error) {
+      console.error("[tracks] Erreur de mise à jour de la photo de couverture", error);
+      next(error);
+    }
+  });
 
   /** Envoie le contenu binaire d'une piste après vérification de sa propriété. */
   app.get("/api/tracks/:id/audio", auth, async (req, res, next) => {

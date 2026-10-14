@@ -20,7 +20,7 @@
 }
 
 .knob-container:focus-visible {
-  box-shadow: 0 0 0 2px #00f5b4;
+  box-shadow: 0 0 0 2px #00d2ff;
 }
 
 .knob-container.is-disabled {
@@ -34,7 +34,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #a0c4ba;
+  color: #93c5fd;
   margin-bottom: 0.35rem;
   text-align: center;
   white-space: nowrap;
@@ -64,10 +64,10 @@
 
 .knob-value-arc {
   fill: none;
-  stroke: #00f5b4;
+  stroke: #00d2ff;
   stroke-width: 5;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 4px rgba(0, 245, 180, 0.6));
+  filter: drop-shadow(0 0 4px rgba(0, 210, 255, 0.6));
   transition: stroke-dashoffset 0.05s linear;
 }
 
@@ -75,7 +75,7 @@
   width: 72%;
   height: 72%;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #2a3d36, #14201c 85%);
+  background: radial-gradient(circle at 35% 35%, #1e3a5f, #0d1a2d 85%);
   box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.25),
     inset 0 -2px 4px rgba(0, 0, 0, 0.8),
@@ -91,17 +91,17 @@
 .knob-indicator {
   width: 3px;
   height: 9px;
-  background: #00f5b4;
+  background: #00d2ff;
   border-radius: 2px;
   margin-top: 3px;
-  box-shadow: 0 0 6px #00f5b4;
+  box-shadow: 0 0 6px #00d2ff;
 }
 
 .knob-val-text {
   font-size: 0.75rem;
   font-family: monospace;
   font-weight: 600;
-  color: #e2f1ec;
+  color: #e0f2fe;
   margin-top: 0.35rem;
   text-align: center;
 }
