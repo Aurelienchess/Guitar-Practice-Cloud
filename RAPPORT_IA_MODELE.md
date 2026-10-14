@@ -1093,7 +1093,7 @@ Avec dans l'ordre : le succès des tests, le lancement du backend et du frontend
 Si la vidéo ne marche pas il est possible qu'il faille aller la lire dans le projet : "./demo-application-compresse.mp4"
 
 
-# Rapport d'usage de l'IA début du projet - TP4
+# Rapport d'usage de l'IA - TP4
 
 ## Préparation et prototypage du visualiseur audio Butterchurn (MilkDrop WebGL)
 
@@ -1146,7 +1146,7 @@ L'agent a défini une architecture complète, robuste et modulaire respectant le
 - **Service centralisé `AudioEngineService` (Singleton Angular) :**
   - Conserve un `AudioContext` unique et persistant sur toute l'application. Lorsque l'utilisateur navigue entre la bibliothèque de morceaux, la page de mixage studio et le laboratoire de shaders, la musique ne s'interrompt jamais.
   - Chaîne de nœuds audio interconnectés :
-    $$\text{Source Audio} \longrightarrow \text{StereoPannerNode} \longrightarrow \text{BiquadFilterNodes (EQ 5 bandes)} \longrightarrow \text{WaveShaperNode (Distortion)} \longrightarrow \text{BiquadFilterNode (Filter)} \longrightarrow \text{DelayNode + Feedback} \longrightarrow \text{ConvolverNode / Reverb} \longrightarrow \text{Master Gain} \longrightarrow \text{Destination (Enceintes)}$$
+    Source Audio -> StereoPannerNode -> BiquadFilterNodes (EQ 5 bandes) -> WaveShaperNode (Distortion) -> BiquadFilterNode (Filter) -> DelayNode + Feedback -> ConvolverNode / Reverb -> Master Gain -> Destination (Enceintes)
 - **Visualisation & Analyse temps réel :**
   - Deux instances de `AnalyserNode` branchées en parallèle :
     - Nœud 1 (FFT 2048) : pour le tracé de la forme d'onde (*Waveform*) et du spectre de fréquences (*Spectrum Analyzer*).
@@ -1475,3 +1475,28 @@ Je voulais, en passant à un thème bleu plutôt que vert, renforcer l'effet de 
 Il est désormais possible de rajouter des images aux morceaux qui n'en possèdent pas (en plus de la détection automatique des tags ID3). Il est possible de le faire pour un nouveau morceau ou un morceau existant.
 Le bouton toggle Dark/Light mode placé directement à gauche du profil permet à l'utilisateur d'adapter l'ambiance visuelle. La sauvegarde de la préférence dans le localStorage permet de conserver son choix lors des futures visites.
 
+# Présentation des ajouts du TP4
+En conclusion, voici en vidéos les fonctionnalités principales implémentées pour ce TP4.
+## Naviguation entre les pages et toggle thème sombre / claire
+Ci-dessous le toggle des thèmes fonctionnel sur toutes les pages ainsi que la musique qui persiste malgré le changement de page.
+<video controls src="nav-theme.mp4" title="Title"></video>
+Si la vidéo ne marche pas il est possible qu'il faille aller la lire dans le projet :
+  "./nav-theme.mp4"
+
+## Images des morceaux
+Ci-dessous on peut constater que les images associés aux musiques peuvent être ajoutées / modifiées. Le tout en conservant l'extraction automatique des métadonnées ID3.
+<video controls src="image-musique.mp4" title="Title"></video>
+Si la vidéo ne marche pas il est possible qu'il faille aller la lire dans le projet :
+  "./image-musique.mp4"
+
+## Page de paramétrage Butterchurn
+Ci-dessous on apperçoit que le Butterchurn est bien en rytme avec la musique et peut être paramétré de multiples façons avec notamment les Shaders ISF, la Webcam et l'injecteur de scripts.
+<video controls src="page-butterchurn.mp4" title="Title"></video>
+Si la vidéo ne marche pas il est possible qu'il faille aller la lire dans le projet :
+  "./page-butterchurn.mp4"
+
+## Page de mixage
+Ci-dessous on peut voir tous les effets possibles pour la page de mixage comme les widgets UI rotatifs, les vu-mètres Stéréo, l'oscilloscope temps réel et la diversité des 6 modules audio.
+<video controls src="./page-mixage.mp4" title="Title"></video>
+Si la vidéo ne marche pas il est possible qu'il faille aller la lire dans le projet :
+  "./page-mixage.mp4"
